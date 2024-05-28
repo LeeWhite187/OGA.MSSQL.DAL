@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <!-- NoWarn below suppresses NETSDK1138 project-wide -->
+    <!-- This suppresses the IDE warning that NET5.0 is out of support. -->
+    <NoWarn>$(NoWarn);NETSDK1138</NoWarn>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.1</AssemblyVersion>
+    <FileVersion>1.0.1.1</FileVersion>
+    <PackageId>OGA.MSSQL.DAL</PackageId>
+    <Product>OGA MS SQLServer Data Access Library</Product>
+    <Description>Data Access Library (DAL) for MS SQLServer.</Description>
+    <Company>OGA</Company>
+    <Authors>Lee White</Authors>
+    <AssemblyName>OGA.MSSQL.DAL</AssemblyName>
+    <RootNamespace>OGA.MSSQL.DAL</RootNamespace>
+    <Configurations>DebugWin;ReleaseWin;DebugLinux;ReleaseLinux</Configurations>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(Configuration.EndsWith('Win'))">
+    <DefineConstants>$(DefineConstants);Windows;NET5</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(Configuration.EndsWith('Linux'))">
+    <DefineConstants>$(DefineConstants);Linux;NET5</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(Configuration.EndsWith('OSX'))">
+    <DefineConstants>$(DefineConstants);OSX;NET5</DefineConstants>
+  </PropertyGroup>
+
+  <Import Project="..\OGA.MSSQL.DAL_SP\OGA.MSSQL.DAL_SP.projitems" Label="Shared" />
+
+  <ItemGroup>
+    <PackageReference Include="OGA.Common.Lib.NetCore" Version="3.5.0" />
+    <PackageReference Include="OGA.SharedKernel" Version="3.5.4" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
+  </ItemGroup>
+
+</Project>
