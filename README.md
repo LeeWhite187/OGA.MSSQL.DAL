@@ -2,7 +2,7 @@
 Data Access Layer for MS SQL Server
 
 ## Description
-This library provides a Data Access Layer (DAL) and a class of tools for managing SQL Server databases, tables, and users.\
+This library provides a Data Access Layer (DAL) and a class of tools for managing SQL Server databases, tables, and users.
 
 ## Installation
 OGA.MSSQL.DAL is available via NuGet:
