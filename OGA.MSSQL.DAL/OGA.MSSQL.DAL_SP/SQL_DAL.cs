@@ -451,6 +451,104 @@ namespace OGA.MSSQL
         #region Query Methods
 
         /// <summary>
+        /// Call this method to execute a stored procedure that accepts a source datatable as parameter.
+        /// Returns 1 for success. Negatives for error.
+        /// </summary>
+        /// <param name="sprocname"></param>
+        /// <param name="tablename"></param>
+        /// <param name="dt"></param>
+        /// <returns></returns>
+        public (int res, int affectrowcount) Execute_SProc_accepting_Table(string sprocname, string tablename, System.Data.DataTable dt)
+        {
+            int result = 0;
+            System.Data.SqlClient.SqlCommand cmd = null;
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                    "Already disposed.");
+
+                return (-1, 0);
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
+                    $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                    "Attempting to exceute a stored procedure that accepts a table, with parameters of:\r\n" +
+                    "sprocname = " + (sprocname ?? "") + "\r\n" +
+                    "tablename = " + (tablename ?? ""));
+
+                // We need a database connection for this query.
+                // See if we have an existing one...
+                var resconn = this.Connect(false);
+                if(resconn != 1)
+                {
+                    // Failed to open database connection.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        "Already disposed.");
+
+                    return (-1, 0);
+                }
+                // If here, we have a connection we can use.
+
+                try
+                {
+                    // Set the command to call the desired stored procedure.
+                    cmd = new System.Data.SqlClient.SqlCommand(sprocname, _dbConnection);
+                    cmd.CommandType = System.Data.CommandType.StoredProcedure;
+
+                    //Pass table Valued parameter to Store Procedure
+                    System.Data.SqlClient.SqlParameter sqlParam1 = cmd.Parameters.AddWithValue(tablename, dt);
+                    sqlParam1.SqlDbType = System.Data.SqlDbType.Structured;
+
+                    //// Create the return value.
+                    //var retpar = cmd.CreateParameter();
+                    //retpar.Direction = System.Data.ParameterDirection.ReturnValue;
+
+                    // Tell the stored procedure to execute.
+                    result = cmd.ExecuteNonQuery();
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
+                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        "Attempting to collect returned data from stored procedure call, for parameters of:\r\n" +
+                        "sprocname = " + (sprocname ?? "") + "\r\n" +
+                        "tablename = " + (tablename ?? ""));
+
+                    //returnvalue = (int)retpar.Value;
+                    //returnvalue = (int)cmd.Parameters["@RETURN_VALUE"].Value;
+                }
+                catch (Exception e)
+                {
+                    // Something went wrong while attempting to execute the stored procedure.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        "An exception was caught while executing the stored procedure, {0}.", sprocname);
+
+                    return (-4, 0);
+                }
+
+                // Return success to the caller.
+                return (1, result);
+            }
+            finally
+            {
+                // Clean up the command.
+                this.CloseCommand(cmd);
+                cmd = null;
+
+                if(!this._explicit_ConnectionOpen_Called)
+                    this.Disconnect();
+            }
+        }
+
+        /// <summary>
         /// Call this method to execute a stored procedure that accepts two source datatables as parameters.
         /// Returns 1 for success. Negatives for error.
         /// </summary>
