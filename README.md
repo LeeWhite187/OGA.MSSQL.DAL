@@ -31,7 +31,7 @@ Currently, the nuget package of this library supports the framework versions and
 If someone needs others (older or newer), let me know, and I'll add them to the build script.
 
 ## Visual Studio
-This library is currently built using Visual Studio 2022 17.6.
+This library is currently built using Visual Studio 2022 17.2.
 
 ## License
 Please see the [License](LICENSE).
