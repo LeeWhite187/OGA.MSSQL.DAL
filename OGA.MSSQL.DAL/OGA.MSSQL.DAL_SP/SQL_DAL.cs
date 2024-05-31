@@ -800,7 +800,7 @@ namespace OGA.MSSQL
                     // Failed to open database connection.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_SProc_accepting_ParameterList_withTerminalSelect_and_ReturnIntVal)} - " +
                         "Already disposed.");
 
                     return (-1, 0);
