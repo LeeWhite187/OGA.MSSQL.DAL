@@ -468,7 +468,7 @@ namespace OGA.MSSQL
                 // Already disposed.
 
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                    $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                    $"{_classname}:-:{nameof(Execute_SProc_accepting_Table)} - " +
                     "Already disposed.");
 
                 return (-1, 0);
@@ -477,7 +477,7 @@ namespace OGA.MSSQL
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
-                    $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                    $"{_classname}:-:{nameof(Execute_SProc_accepting_Table)} - " +
                     "Attempting to exceute a stored procedure that accepts a table, with parameters of:\r\n" +
                     "sprocname = " + (sprocname ?? "") + "\r\n" +
                     "tablename = " + (tablename ?? ""));
@@ -490,7 +490,7 @@ namespace OGA.MSSQL
                     // Failed to open database connection.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_SProc_accepting_Table)} - " +
                         "Already disposed.");
 
                     return (-1, 0);
@@ -515,7 +515,7 @@ namespace OGA.MSSQL
                     result = cmd.ExecuteNonQuery();
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_SProc_accepting_Table)} - " +
                         "Attempting to collect returned data from stored procedure call, for parameters of:\r\n" +
                         "sprocname = " + (sprocname ?? "") + "\r\n" +
                         "tablename = " + (tablename ?? ""));
@@ -528,7 +528,7 @@ namespace OGA.MSSQL
                     // Something went wrong while attempting to execute the stored procedure.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_SProc_accepting_Table)} - " +
                         "An exception was caught while executing the stored procedure, {0}.", sprocname);
 
                     return (-4, 0);
