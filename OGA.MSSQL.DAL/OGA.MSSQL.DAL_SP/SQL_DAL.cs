@@ -692,7 +692,7 @@ namespace OGA.MSSQL
                     // Failed to open database connection.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_SProc_accepting_ParameterList_withReturnIntVal)} - " +
                         "Already disposed.");
 
                     return (-1, 0, 0);
@@ -917,7 +917,7 @@ namespace OGA.MSSQL
                     // Failed to open database connection.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_BulkInsert)} - " +
                         "Already disposed.");
 
                     return -1;
@@ -1000,7 +1000,7 @@ namespace OGA.MSSQL
                     // Failed to open database connection.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_Table_Query)} - " +
                         "Already disposed.");
 
                     return -1;
@@ -1111,7 +1111,7 @@ namespace OGA.MSSQL
                     // Failed to open database connection.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_Scalar)} - " +
                         "Already disposed.");
 
                     return -1;
@@ -1207,7 +1207,7 @@ namespace OGA.MSSQL
                     // Failed to open database connection.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(Execute_SProc_accepting_twoTables)} - " +
+                        $"{_classname}:-:{nameof(Execute_NonQuery)} - " +
                         "Already disposed.");
 
                     return -1;
