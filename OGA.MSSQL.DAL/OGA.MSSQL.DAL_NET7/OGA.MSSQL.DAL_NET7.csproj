@@ -37,8 +37,8 @@
   <Import Project="..\OGA.MSSQL.DAL_SP\OGA.MSSQL.DAL_SP.projitems" Label="Shared" />
 
   <ItemGroup>
-    <PackageReference Include="OGA.Common.Lib.NetCore" Version="3.5.0" />
-    <PackageReference Include="OGA.SharedKernel" Version="3.5.4" />
+    <PackageReference Include="OGA.Common.Lib.NetCore" Version="3.8.0" />
+    <PackageReference Include="OGA.SharedKernel" Version="3.6.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
   </ItemGroup>
 
