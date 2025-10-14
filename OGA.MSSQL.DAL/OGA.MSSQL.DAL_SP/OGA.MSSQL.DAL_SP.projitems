@@ -11,7 +11,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Enumerations.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Model\DBRole_Assignments.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)SQL_DAL.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)SQL_Tools.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)MSSQL_DAL.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)MSSQL_Tools.cs" />
   </ItemGroup>
 </Project>

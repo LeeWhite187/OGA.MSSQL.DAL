@@ -5,11 +5,11 @@ using System.Text;
 
 namespace OGA.MSSQL
 {
-    public class SQL_DAL : IDisposable
+    public class MSSQL_DAL : IDisposable
     {
         #region Private Fields
 
-        static private string _classname = nameof(SQL_DAL);
+        static private string _classname = nameof(MSSQL_DAL);
 
         static private volatile int _instancecounter;
 
@@ -35,7 +35,7 @@ namespace OGA.MSSQL
 
         #region ctor / dtor
 
-        public SQL_DAL()
+        public MSSQL_DAL()
         {
             host = "";
             service = "";
