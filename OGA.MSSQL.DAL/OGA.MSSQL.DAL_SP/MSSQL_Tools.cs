@@ -84,6 +84,30 @@ namespace OGA.MSSQL
         #endregion
 
 
+        #region Connectivity Methods
+
+        /// <summary>
+        /// Provides a quick ability to test credentials to a SQL Server instance, without creating a persistent connection.
+        /// </summary>
+        /// <returns></returns>
+        public int TestConnection()
+        {
+            using(var dal = new MSSQL_DAL())
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = "master";
+                _dal.username = Username;
+                _dal.password = Password;
+
+                return dal.Test_Connection();
+            }
+        }
+
+        #endregion
+
+
         #region Bulk Queries
 
         /// <summary>
@@ -1121,7 +1145,90 @@ namespace OGA.MSSQL
                     $"We can connect to database: {(Database ?? "")}.");
 
                 // Compose the sql query to get logins from the sql server instance.
-                string sql = "CREATE LOGIN[" + login + "] FROM WINDOWS WITH DEFAULT_DATABASE =[master], DEFAULT_LANGUAGE =[us_english]";
+                string sql = "CREATE LOGIN [" + login + "] FROM WINDOWS WITH DEFAULT_DATABASE =[master], DEFAULT_LANGUAGE =[us_english]";
+
+                if (_dal.Execute_NonQuery(sql) != 1)
+                {
+                    // Failed to get logins from the sql server instance.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:-:{nameof(Add_WindowsLogin)} - " +
+                        "Failed to add login to sql server instance.");
+
+                    return -2;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:-:{nameof(Add_WindowsLogin)} - " +
+                    "Exception occurred");
+
+                return -20;
+            }
+        }
+
+        /// <summary>
+        /// Returns 1 on success, 0 if already present, negatives for errors.
+        /// </summary>
+        /// <param name="login">Account login string</param>
+        /// <param name="password">Account password</param>
+        /// <returns></returns>
+        public int Add_LocalLogin(string login, string password)
+        {
+            // Check that the user is in the logins list already.
+            int res = this.Does_Login_Exist(login);
+            if(res < 0)
+            {
+                // Error occurred.
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Add_WindowsLogin)} - " +
+                    "Error connecting to the sql server instance.");
+
+                return -1;
+            }
+            else if (res == 1)
+            {
+                // User is in the database.
+                return 0;
+            }
+            // User not present.
+
+            // We will add it.
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = "master";
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:-:{nameof(Add_WindowsLogin)} - " +
+                    $"Attempting to add login to database: {(Database ?? "")}...");
+
+                // See if we can connect to the database.
+                if (_dal.Test_Connection() != 1)
+                {
+                    // Failed to connect to database.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:-:{nameof(Add_WindowsLogin)} - " +
+                        $"Failed to connect to database: {(Database ?? "")}.");
+
+                    return -1;
+                }
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:-:{nameof(Add_WindowsLogin)} - " +
+                    $"We can connect to database: {(Database ?? "")}.");
+
+                // Compose the sql query to add a login to the sql server instance.
+                string sql = "CREATE LOGIN [" + login + "] WITH PASSWORD = '" + password + "', DEFAULT_DATABASE = [master], DEFAULT_LANGUAGE = [us_english];";
 
                 if (_dal.Execute_NonQuery(sql) != 1)
                 {
@@ -1262,6 +1369,90 @@ namespace OGA.MSSQL
                     , _classname, Database);
 
                 return -20;
+            }
+        }
+
+        /// <summary>
+        /// Public call to delete a database user.
+        /// Returns 1 for success. Negatives for errors.
+        /// </summary>
+        /// <param name="username"></param>
+        /// <returns></returns>
+        public int DeleteUser(string username)
+        {
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = "master";
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteUser)} - " +
+                    $"Attempting to delete user...");
+
+                if(string.IsNullOrEmpty(username))
+                {
+                    // Empty username.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteUser)} - " +
+                        $"Empty Username.");
+
+                    return -1;
+                }
+
+                // Connect to the database...
+                var resconn = this._dal.Connect();
+                if(resconn != 1)
+                {
+                    // Failed to connect to server.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteUser)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Delete the user...
+                string sql = $"DROP USER IF EXISTS {username};";
+                if (this._dal.Execute_NonQuery(sql) != -1)
+                {
+                    // Delete user command failed.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteUser)} - " +
+                        "Delete user command failed.");
+
+                    return -2;
+                }
+
+                // Check if the user was deleted...
+                var resq = this.Does_Login_Exist(username);
+                if(resq != 0)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteUser)} - " +
+                        "User was not confirmed as dropped.");
+
+                    return -3;
+                }
+
+                return 1;
+            }
+            catch(Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteUser)} - " +
+                    $"Exception occurred to database: {(Database ?? "")}");
+
+                return -20;
+            }
+            finally
+            {
             }
         }
 
