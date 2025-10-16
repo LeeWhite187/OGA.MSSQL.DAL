@@ -1,4 +1,6 @@
-﻿using System;
+﻿using OGA.MSSQL.DAL;
+using OGA.MSSQL.DAL_SP.Model;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -58,6 +60,11 @@ namespace OGA.MSSQL
                     _dal?.Disconnect();
                 }
                 catch (Exception) { }
+                try
+                {
+                    _dal?.Dispose();
+                }
+                catch (Exception) { }
 
                 _dal = null;
 
@@ -94,12 +101,11 @@ namespace OGA.MSSQL
         {
             using(var dal = new MSSQL_DAL())
             {
-                _dal = new MSSQL_DAL();
-                _dal.host = HostName;
-                _dal.service = Service;
-                _dal.database = "master";
-                _dal.username = Username;
-                _dal.password = Password;
+                dal.host = HostName;
+                dal.service = Service;
+                dal.database = "master";
+                dal.username = Username;
+                dal.password = Password;
 
                 return dal.Test_Connection();
             }
@@ -229,6 +235,13 @@ namespace OGA.MSSQL
                 int val = 0;
                 try
                 {
+                    if(tempval == null)
+                    {
+                        // The received database id is null.
+                        // Meaning, no database id was found for the given database name.
+                        return 0;
+                    }
+
                     // Attempt to recover the databaseId from the scalar call.
                     int.TryParse(tempval.ToString(), out val);
 
@@ -410,7 +423,7 @@ namespace OGA.MSSQL
             try
             {
                 // Check that the database name was give.
-                if (String.IsNullOrEmpty(database))
+                if (String.IsNullOrWhiteSpace(database))
                 {
                     // database name not set.
                     return -1;
@@ -431,17 +444,17 @@ namespace OGA.MSSQL
                 }
 
                 // Formulate the backend file paths.
-                if (String.IsNullOrEmpty(backendfilefolder))
+                if (String.IsNullOrWhiteSpace(backendfilefolder))
                 {
                     // The backend folder is not set.
                     // Use defaults.
-                    sql = "CREATE DATABASE [" + database + "]";
+                    sql = "CREATE DATABASE [" + database + "];";
                 }
                 else if (backendfilefolder == "")
                 {
                     // The backend folder is not set.
                     // Use defaults.
-                    sql = "CREATE DATABASE [" + database + "]";
+                    sql = "CREATE DATABASE [" + database + "];";
                 }
                 else
                 {
@@ -461,9 +474,9 @@ namespace OGA.MSSQL
                     string logfilepath = System.IO.Path.Combine(backendfilefolder, database + "_log.ldf");
 
                     // Create the sql statement that includes the backend data files.
-                    sql = "CREATE DATABASE[" + database + "]" +
-                        "ON(NAME = N'" + database + "', FILENAME = N'" + dbfilepath + "', SIZE = 1024MB, FILEGROWTH = 256MB)" +
-                        "LOG ON(NAME = N'" + database + "_log', FILENAME = N'" + logfilepath + "', SIZE = 512MB, FILEGROWTH = 125MB)";
+                    sql = "CREATE DATABASE[" + database + "] " +
+                        "ON(NAME = N'" + database + "', FILENAME = N'" + dbfilepath + "', SIZE = 1024MB, FILEGROWTH = 256MB) " +
+                        "LOG ON(NAME = N'" + database + "_log', FILENAME = N'" + logfilepath + "', SIZE = 512MB, FILEGROWTH = 125MB);";
                 }
                 // We have the sql script to run.
 
@@ -500,6 +513,81 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
+        /// Drops connections to the given database.
+        /// Returns 1 for success. Negatives for errors.
+        /// </summary>
+        /// <param name="database"></param>
+        /// <returns></returns>
+        public int Set_Database_toSingleUser(string database)
+        {
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = "master";
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                // Check that the database name was give.
+                if (String.IsNullOrWhiteSpace(database))
+                {
+                    // database name not set.
+                    return -1;
+                }
+                if (database == "")
+                {
+                    // database name not set.
+                    return -1;
+                }
+                // Database name is set.
+
+                // See if the database exists.
+                int res = this.Does_Database_Exist(database);
+                if (res == 0)
+                {
+                    // The database doesn't exist.
+                    return 0;
+                }
+                else if (res < 0)
+                {
+                    // Failed to connect.
+                    return -2;
+                }
+                // The database exists.
+                // We will attempt to convert it to single user.
+
+                string sql = "ALTER DATABASE [" + database + "] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance.
+                int res12323 = _dal.Execute_NonQuery(sql);
+                if (res12323 != -1)
+                {
+                    // Error occurred while converting the database to single user.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while converting the database to single user."
+                        , _classname);
+
+                    return -4;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred"
+                    , _classname, Database);
+
+                return -20;
+            }
+        }
+
+        /// <summary>
         /// Drops the given database from the SQL Server instance.
         /// Returns 1 for success. Negatives for errors.
         /// </summary>
@@ -520,7 +608,7 @@ namespace OGA.MSSQL
             try
             {
                 // Check that the database name was give.
-                if (String.IsNullOrEmpty(database))
+                if (String.IsNullOrWhiteSpace(database))
                 {
                     // database name not set.
                     return -1;
@@ -580,18 +668,44 @@ namespace OGA.MSSQL
                 // If here, the database was deleted.
 
                 // Cleanup any backend files that were offline.
+                try
                 {
+                    // Make sure the shell is enabled...
+                    var resenable = this.SQLEngine_EnableCmdShell();
+                    if(resenable != 1)
+                    {
+                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Error occurred while enabling the command shell on the SQL server."
+                            , _classname);
+                    }
+
                     // Remove each file from the server.
                     foreach (var s in paths)
                     {
                         try
                         {
-                            System.IO.File.Delete(s);
+                            var resdel = this.SQLEngine_DeleteFile(s);
+                            if(resdel != 1)
+                            {
+                                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                                "Error occurred while deleting a file on the SQL server."
+                                    , _classname);
+                            }
                         }
                         catch (Exception e)
                         {
-
                         }
+                    }
+                }
+                finally
+                {
+                    // Disable command shell access...
+                    var resdisable = this.SQLEngine_DisableCmdShell();
+                    if(resdisable != 1)
+                    {
+                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Error occurred while disabling the command shell on the SQL server."
+                            , _classname);
                     }
                 }
 
@@ -862,7 +976,7 @@ namespace OGA.MSSQL
             filepaths = null;
 
             // Check that the database name was give.
-            if (String.IsNullOrEmpty(database))
+            if (String.IsNullOrWhiteSpace(database))
             {
                 // database name not set.
                 return -1;
@@ -1396,7 +1510,7 @@ namespace OGA.MSSQL
                     $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteUser)} - " +
                     $"Attempting to delete user...");
 
-                if(string.IsNullOrEmpty(username))
+                if(string.IsNullOrWhiteSpace(username))
                 {
                     // Empty username.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
@@ -1456,6 +1570,80 @@ namespace OGA.MSSQL
             }
         }
 
+        /// <summary>
+        /// Public call to change a user password.
+        /// Returns 1 for success. Negatives for errors.
+        /// </summary>
+        /// <param name="username"></param>
+        /// <param name="password"></param>
+        /// <returns></returns>
+        public int ChangeUserPassword(string username, string password = "")
+        {
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = Database;
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(ChangeUserPassword)} - " +
+                    $"Attempting to create user...");
+
+                if(string.IsNullOrWhiteSpace(username))
+                {
+                    // Empty Username.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(ChangeUserPassword)} - " +
+                        $"Empty Username.");
+
+                    return -1;
+                }
+
+                // Connect to the database...
+                var resconn = this._dal.Connect();
+                if(resconn != 1)
+                {
+                    // Failed to connect to server.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(ChangeUserPassword)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Change the user password...
+                string sql = $"ALTER LOGIN [{username}] WITH PASSWORD = '{password}';";
+                if (this._dal.Execute_NonQuery(sql) != -1)
+                {
+                    // Change user password command failed.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(ChangeUserPassword)} - " +
+                        "Change user password command failed.");
+
+                    return -2;
+                }
+
+                return 1;
+            }
+            catch(Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(ChangeUserPassword)} - " +
+                    $"Exception occurred to database: {(Database ?? "")}");
+
+                return -20;
+            }
+            finally
+            {
+            }
+        }
+
         #endregion
 
 
@@ -1490,7 +1678,7 @@ namespace OGA.MSSQL
 
                     // See if we can recover a database role from the Groupname field.
                     eDBRoles dbr = Recover_DatabaseRole_from_String(s.GroupName);
-                    if(dbr == eDBRoles.none)
+                    if (dbr == eDBRoles.none)
                     {
                         // No database role in the current record.
                         // Nothing to add.
@@ -1513,7 +1701,7 @@ namespace OGA.MSSQL
         /// <param name="database"></param>
         /// <param name="roles"></param>
         /// <returns></returns>
-        public int Get_DBRoles_for_Database(string database, out List<OGA.MSSQL.Model.DBRole_Assignments> roles)
+        public int Get_DBRoles_for_Database(string database, out List<OGA.MSSQL.Model.DBRole_Assignment> roles)
         {
             System.Data.DataTable dt = null;
             string sql = "";
@@ -1683,12 +1871,12 @@ namespace OGA.MSSQL
                 }
                 // If here, we have database roles.
 
-                roles = new List<OGA.MSSQL.Model.DBRole_Assignments>();
+                roles = new List<OGA.MSSQL.Model.DBRole_Assignment>();
 
                 // Convert each result row to a database role instance.
                 foreach (System.Data.DataRow r in dt.Rows)
                 {
-                    OGA.MSSQL.Model.DBRole_Assignments role = new OGA.MSSQL.Model.DBRole_Assignments();
+                    OGA.MSSQL.Model.DBRole_Assignment role = new OGA.MSSQL.Model.DBRole_Assignment();
 
                     role.ServerName = r["ServerName"] + "";
                     role.DBName = r["DBName"] + "";
@@ -1728,6 +1916,103 @@ namespace OGA.MSSQL
 
 
         #region Table Management
+
+        /// <summary>
+        /// Retrieves the list of tables for the given database.
+        /// NOTE: This command must be executed on a connection with the given database, not to the system database, postgres.
+        /// Returns 1 if found, 0 if not, negatives for errors.
+        /// </summary>
+        /// <param name="databaseName"></param>
+        /// <param name="tablelist"></param>
+        /// <returns></returns>
+        public int Get_TableList_forDatabase(string databaseName, out List<string> tablelist)
+        {
+            System.Data.DataTable dt = null;
+            tablelist = new List<string>();
+
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = Database;
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_TableList_forDatabase)} - " +
+                    $"Attempting to get table names for database {databaseName ?? ""}...");
+
+                // Connect to the database...
+                var resconn = this._dal.Connect();
+                if(resconn != 1)
+                {
+                    // Failed to connect to server.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_TableList_forDatabase)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Compose the sql query we will perform.
+                string sql = $"SELECT TABLE_NAME " +
+                             $"FROM INFORMATION_SCHEMA.TABLES " +
+                             $"WHERE TABLE_CATALOG = '{databaseName}' " +
+                             $"AND TABLE_TYPE = 'BASE TABLE' " +
+                             $"AND TABLE_SCHEMA NOT IN ('INFORMATION_SCHEMA', 'sys'); ";
+
+
+                if (_dal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get table names from the database.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_TableList_forDatabase)} - " +
+                        "Failed to get table names from the database.");
+
+                    return -2;
+                }
+                // We have a datatable of table names.
+
+                // See if it contains anything.
+                if (dt.Rows.Count == 0)
+                {
+                    // No tables in the database.
+                    // Or, the database doesn't exist.
+
+                    return 1;
+                }
+                // If here, we have tables for the database.
+
+                // See if we have a match to the given tablename.
+                foreach (System.Data.DataRow r in dt.Rows)
+                {
+                    string sss = r[0] + "";
+                    tablelist.Add(sss);
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_TableList_forDatabase)} - " +
+                    "Exception occurred");
+
+                return -20;
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
 
         /// <summary>
         /// Returns 1 if found, 0 if not, negatives for errors.
@@ -1870,9 +2155,303 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
+        /// Checks if the given table exists in the connected database.
+        /// Returns 1 if exists, 0 if not. Negatives for errors.
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <returns></returns>
+        public int DoesTableExist(string tableName)
+        {
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = Database;
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(DoesTableExist)} - " +
+                    $"Attempting to query if table ({(tableName ?? "")}) exists...");
+
+                if(string.IsNullOrWhiteSpace(tableName))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DoesTableExist)} - " +
+                        $"Empty table name.");
+
+                    return -1;
+                }
+
+                // Connect to the database...
+                var resconn = this._dal.Connect();
+                if(resconn != 1)
+                {
+                    // Failed to connect to server.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DoesTableExist)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Get the table list...
+                var res2 = this.Get_TableList_forDatabase(Database, out var tl);
+                if(res2 != 1 || tl == null)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DoesTableExist)} - " +
+                        $"Table Not Found.");
+
+                    return -1;
+                }
+                if(!tl.Contains(tableName))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DoesTableExist)} - " +
+                        $"Table Not Found.");
+
+                    return 0;
+                }
+                // If here, the table was found in the connected database.
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(DoesTableExist)} - " +
+                    "Exception occurred");
+
+                return -20;
+            }
+        }
+
+        /// <summary>
+        /// Creates a table in the connected database.
+        /// Returns 1 for success. Negatives for errors.
+        /// </summary>
+        /// <param name="tabledef"></param>
+        /// <returns></returns>
+        public int Create_Table(TableDefinition tabledef)
+        {
+            string sql = "";
+
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = Database;
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            if(tabledef == null)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
+                    $"Null table definition.");
+
+                return -1;
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
+                    $"Attempting to create table ({(tabledef.tablename ?? "")})...");
+
+                if(string.IsNullOrWhiteSpace(tabledef.tablename))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
+                        $"Empty table name.");
+
+                    return -1;
+                }
+
+                // Connect to the database...
+                var resconn = this._dal.Connect();
+                if(resconn != 1)
+                {
+                    // Failed to connect to server.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+                // Table name is set.
+
+                // Check if the table exists or not...
+                var res2 = this.DoesTableExist(tabledef.tablename);
+                if (res2 == 1)
+                {
+                    // Already present.
+                    return 1;
+                }
+                if (res2 < 0)
+                {
+                    // Failed to query for table.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
+                        $"Failed to query for table.");
+
+                    return -1;
+                }
+                // If here, the table doesn't yet exist.
+
+                // Formulate the sql command...
+                sql = tabledef.CreateSQLCmd();
+
+                // Execute it on the postgres instance.
+                int res123 = _dal.Execute_NonQuery(sql);
+                if (res123 != -1)
+                {
+                    // Error occurred while adding the table.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
+                        "Error occurred while adding the table.");
+
+                    return -4;
+                }
+
+                // Check if the table is now present on the server.
+                if (this.DoesTableExist(tabledef.tablename) != 1)
+                {
+                    // The table was not created successfully.
+                    return -5;
+                }
+                // If here, the table was added.
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
+                    "Exception occurred");
+
+                return -20;
+            }
+        }
+
+        /// <summary>
+        /// Drops a table from the connected database.
+        /// Returns 1 for success. Negatives for errors.
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <returns></returns>
+        public int Drop_Table(string tableName)
+        {
+            string sql = "";
+
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = Database;
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Drop_Table)} - " +
+                    $"Attempting to drop table ({(tableName ?? "")})...");
+
+                if(string.IsNullOrWhiteSpace(tableName))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Drop_Table)} - " +
+                        $"Empty table name.");
+
+                    return -1;
+                }
+
+                // Connect to the database...
+                var resconn = this._dal.Connect();
+                if(resconn != 1)
+                {
+                    // Failed to connect to server.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Drop_Table)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Check if the table exists or not...
+                var res2 = this.DoesTableExist(tableName);
+                if (res2 == 0)
+                {
+                    // Already deleted.
+                    return 1;
+                }
+                if (res2 < 0)
+                {
+                    // Failed to query for table.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Drop_Table)} - " +
+                        $"Failed to query for table.");
+
+                    return -1;
+                }
+                // If here, the table still exists.
+
+                // Formulate the sql command...
+                sql = $"DROP TABLE IF EXISTS {tableName};";
+
+                // Execute it on the postgres instance.
+                int res123 = _dal.Execute_NonQuery(sql);
+                if (res123 != -1)
+                {
+                    // Error occurred while dropping the table.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Drop_Table)} - " +
+                        "Error occurred while dropping the table.");
+
+                    return -4;
+                }
+
+                // Check if the table is still present on the server.
+                if (this.DoesTableExist(tableName) != 1)
+                {
+                    // The table was not dropped as expected.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Drop_Table)} - " +
+                        "Table drop failed. Table is still present.");
+
+                    return -5;
+                }
+                // If here, the table was dropped.
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Drop_Table)} - " +
+                    "Exception occurred");
+
+                return -20;
+            }
+        }
+
+        /// <summary>
         /// Gets the row count for each table in the database the user connects to.
         /// </summary>
-        /// <param name=""></param>
+        /// <param name="rowdata"></param>
         /// <returns></returns>
         public int Get_RowCount_for_Tables(out List<KeyValuePair<string, int>> rowdata)
         {
@@ -2101,10 +2680,418 @@ namespace OGA.MSSQL
             }
         }
 
+        /// <summary>
+        /// Retrieves the list of columns and types for the given table.
+        /// NOTE: This command must be executed on a connection with the given database, not to the system database, postgres.
+        /// Returns 1 if found, 0 if not, negatives for errors.
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <param name="columnlist"></param>
+        /// <returns></returns>
+        public int Get_ColumnInfo_forTable(string tableName, out List<ColumnInfo> columnlist)
+        {
+            System.Data.DataTable dt = null;
+            columnlist = new List<ColumnInfo>();
+
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = Database;
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                    $"Attempting to get column info for table {tableName ?? ""}...");
+
+                if(string.IsNullOrWhiteSpace(tableName))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                        $"Table name is empty.");
+
+                    return -1;
+                }
+
+                // Connect to the database...
+                var resconn = this._dal.Connect();
+                if(resconn != 1)
+                {
+                    // Failed to connect to server.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Compose the sql query we will perform.
+                string sql = "SELECT DB_NAME() AS table_catalog, " +
+                             "s.name AS table_schema, " +
+                             "t.name AS table_name, " +
+                             "c.column_id AS ordinal_position, " +
+                             "c.name AS column_name, " +
+                             "TYPE_NAME(c.user_type_id) AS data_type, " +
+                             "CASE " +
+                             "    WHEN TYPE_NAME(c.user_type_id) like 'nvarchar' THEN (c.max_length / 2)" +
+                             "    WHEN TYPE_NAME(c.user_type_id) like '%char' THEN c.max_length " +
+                             "    WHEN TYPE_NAME(c.user_type_id) = 'text' THEN c.max_length " +
+                             "    ELSE null " +
+                             "END AS character_maximum_length, " +
+                             "c.max_length AS character_maximum_length, " +
+                             "c.precision, " +
+                             "c.scale, " +
+                             "c.is_nullable, " +
+                             "c.is_identity, " +
+                             "ic.seed_value, " +
+                             "ic.increment_value, " +
+                             "ic.last_value, " +
+                             "CASE " +
+                             "    WHEN c.is_identity = 1 THEN 'BY DEFAULT' " +
+                             "    ELSE NULL " +
+                             "END AS identity_generation " +
+                             "FROM sys.columns AS c " +
+                             "JOIN sys.tables  AS t ON c.object_id = t.object_id " +
+                             "JOIN sys.schemas AS s ON t.schema_id = s.schema_id " +
+                             "LEFT JOIN sys.identity_columns AS ic  " +
+                             "ON c.object_id = ic.object_id AND c.column_id = ic.column_id " +
+                             "WHERE t.name = '" + tableName + "' " +
+                             //"AND s.name = 'dbo' " +
+                             "ORDER BY c.column_id;";
+
+                if (_dal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get column names from the table.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                        "Failed to get column info from the table.");
+
+                    return -2;
+                }
+                // We have a datatable of column info.
+
+                // See if it contains anything.
+                if (dt.Rows.Count == 0)
+                {
+                    // No column in the table.
+                    // Or, the table doesn't exist.
+
+                    // Verify the table exists...
+                    var restable = this.DoesTableExist(tableName);
+                    if(restable != 1)
+                    {
+                        // Table doesn't exist.
+                        // That's why our column list query returned nothing.
+
+                        return 0;
+                    }
+
+                    return 1;
+                }
+                // If here, we have columns for the table.
+
+                foreach (System.Data.DataRow r in dt.Rows)
+                {
+                    var ct = new ColumnInfo();
+
+                    var res1a = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "column_name", out string val);
+                    if(res1a != 1)
+                    {
+                        // Failed to get column_name column value.
+
+                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                            $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                            $"Failed to get column_name column value.");
+
+                        return -22;
+                    }
+                    ct.name = val + "";
+
+                    var res1b = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "data_type", out string val2);
+                    if(res1b != 1)
+                    {
+                        // Failed to get data_type column value.
+
+                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                            $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                            $"Failed to get data_type column value.");
+
+                        return -22;
+                    }
+                    ct.dataType = val2 + "";
+
+                    var res1 = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "ordinal_position", out int displayorder);
+                    if(res1 != 1)
+                    {
+                        // Failed to get ordinal_position column value.
+
+                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                            $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                            $"Failed to get ordinal_position column value.");
+
+                        return -22;
+                    }
+                    ct.ordinal = displayorder;
+
+                    try
+                    {
+                        int maxlength = Convert.ToInt32(r["character_maximum_length"]);
+                        ct.maxlength = maxlength;
+                    }
+                    catch (Exception e)
+                    {
+                        ct.maxlength = null;
+                    }
+
+                    try
+                    {
+                        var res5 = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "is_nullable", out bool nullable);
+                        if(res5 != 1)
+                        {
+                            // Failed to get is_nullable column value.
+
+                            OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                                $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                                $"Failed to get is_nullable column value.");
+
+                            return -22;
+                        }
+
+                        if(nullable)
+                            ct.isNullable = true;
+                        else
+                            ct.isNullable = false;
+                    }
+                    catch (Exception e)
+                    {
+                        ct.isNullable = false;
+                    }
+
+                    // Recover any identity information for the column...
+                    try
+                    {
+                        var res5 = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "is_identity", out bool isidentity);
+                        if(res5 != 1)
+                        {
+                            // Failed to get is_identity column value.
+
+                            OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                                $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                                $"Failed to get is_identity column value.");
+
+                            return -22;
+                        }
+
+                        if(!isidentity)
+                        {
+                            ct.isIdentity = false;
+                            ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                        }
+                        else
+                        {
+                            ct.isIdentity = true;
+
+                            // Get the identity behavior...
+                            try
+                            {
+                                string ib = ((string)r["identity_generation"]) ?? "";
+                                if (ib == "BY DEFAULT")
+                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.GenerateByDefault;
+                                else
+                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                            }
+                            catch (Exception e)
+                            {
+                                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                                    $"Exception occurred while parsing identity_generation for column ({(ct.name ?? "")})");
+
+                                return -21;
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        ct.isIdentity = false;
+                    }
+
+                    columnlist.Add(ct);
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                    "Exception occurred");
+
+                return -20;
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
+
         #endregion
 
 
         #region Private Methods
+
+        /// <summary>
+        /// Attempts to enable command shell access on the SQL Engine.
+        /// </summary>
+        /// <returns></returns>
+        private int SQLEngine_EnableCmdShell()
+        {
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = "master";
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                // Enable advanced options...
+                string sql1 = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                int res1 = _dal.Execute_NonQuery(sql1);
+                if (res1 != -1)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while enabling command shell access on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                // Enable command shell...
+                string sql2 = "EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                int res2 = _dal.Execute_NonQuery(sql2);
+                if (res2 != -1)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while enabling command shell access on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                return 1;
+            }
+            catch(Exception e)
+            {
+                return -10;
+            }
+        }
+        /// <summary>
+        /// Attempts to disable command shell access on the SQL Engine.
+        /// </summary>
+        /// <returns></returns>
+        private int SQLEngine_DisableCmdShell()
+        {
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = "master";
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                // Disable command shell...
+                string sql2 = "EXEC sp_configure 'xp_cmdshell', 0; RECONFIGURE;";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                int res2 = _dal.Execute_NonQuery(sql2);
+                if (res2 != -1)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while disabling command shell access on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                return 1;
+            }
+            catch(Exception e)
+            {
+                return -10;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to delete a file on the SQL Engine host, via its command line access.
+        /// Running this, requires executing SQLEngine_DisableCmdShell(), first.
+        /// </summary>
+        /// <param name="filepath"></param>
+        /// <returns></returns>
+        private int SQLEngine_DeleteFile(string filepath)
+        {
+            if (_dal == null)
+            {
+                _dal = new MSSQL_DAL();
+                _dal.host = HostName;
+                _dal.service = Service;
+                _dal.database = "master";
+                _dal.username = Username;
+                _dal.password = Password;
+            }
+
+            try
+            {
+                // Compose the string to delete the given file...
+                // This composite statement recovers the return value from the command shell execution, as @result.
+                // Then, it passes @result back to us as a scalar query result.
+                string sql = "DECLARE @result INT; " +
+                              "EXEC @result = xp_cmdshell 'DEL \"" + filepath + "\"'; " +
+                              "SELECT @result;";
+                //string sql = "EXEC xp_cmdshell 'DEL \"" + filepath + "\"';";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                //int res = _dal.Execute_NonQuery(sql);
+                int res = _dal.Execute_Scalar(sql, System.Data.CommandType.Text, out var result);
+                if (res != 0)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while performing file delete on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                return 1;
+            }
+            catch(Exception e)
+            {
+                return -10;
+            }
+        }
 
         private string Get_FullyQualified_SQLHostName()
         {

@@ -13,21 +13,9 @@ namespace OGA.MSSQL
         /// </summary>
         none,
         /// <summary>
-        /// Database owners
-        /// </summary>
-        db_owner,
-        /// <summary>
         /// Database access administrators
         /// </summary>
         db_accessadmin,
-        /// <summary>
-        /// Database security administrators
-        /// </summary>
-        db_securityadmin,
-        /// <summary>
-        /// Database DDL administrators
-        /// </summary>
-        db_ddladmin,
         /// <summary>
         /// Database backup operators
         /// </summary>
@@ -41,12 +29,24 @@ namespace OGA.MSSQL
         /// </summary>
         db_datawriter,
         /// <summary>
+        /// Database DDL administrators
+        /// </summary>
+        db_ddladmin,
+        /// <summary>
         /// Database deny data readers
         /// </summary>
         db_denydatareader,
         /// <summary>
         /// Database deny data writers
         /// </summary>
-        db_denydatawriter
+        db_denydatawriter,
+        /// <summary>
+        /// Database owners
+        /// </summary>
+        db_owner,
+        /// <summary>
+        /// Database security administrators
+        /// </summary>
+        db_securityadmin
     }
 }

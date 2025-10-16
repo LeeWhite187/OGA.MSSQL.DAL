@@ -358,7 +358,7 @@ namespace OGA.MSSQL
             System.Data.SqlClient.SqlConnection? conn = null;
 
             // See if the connection string has been set.
-            if (string.IsNullOrEmpty(_connstring))
+            if (string.IsNullOrWhiteSpace(_connstring))
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
                     $"{_classname}:-:{nameof(CreateConnection)} - " +
@@ -1318,11 +1318,13 @@ namespace OGA.MSSQL
         static public int Recover_FieldValue_from_DBRow(System.Data.DataRow dr, string fieldname, out bool val)
         {
             string tempstr = "";
+            val = false;
 
             try
             {
                 // Get the field value.
                 tempstr = dr[fieldname] + "";
+                tempstr = tempstr.Trim().ToLower();
 
                 // See if the stored value is a null.
                 if (tempstr == "")
@@ -1333,14 +1335,16 @@ namespace OGA.MSSQL
                 }
 
                 // See if the value is true or false.
-                if (tempstr == "0")
+                if (tempstr == "0" || tempstr == "false")
                     val = false;
-                else if (tempstr == "1")
+                else if (tempstr == "1" || tempstr == "true")
                     val = true;
                 else
+                {
                     // Not a value we can parse.
                     val = false;
                     return -1;
+                }
 
                 return 1;
             }

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace OGA.MSSQL.Model
 {
-    public class DBRole_Assignments
+    public class DBRole_Assignment
     {
         /// <summary>
         /// Server instance that database resides on
