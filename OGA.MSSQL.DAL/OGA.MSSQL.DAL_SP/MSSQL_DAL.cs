@@ -30,6 +30,13 @@ namespace OGA.MSSQL
         public string username { get; set; }
         public string password { get; set; }
 
+        /// <summary>
+        /// Set this flag if you want database connections to NOT pool in background.
+        /// Generally, this should be off (false) in production.
+        /// But, it is good to enable in testing, to ensure that connections properly close when expected, and are not pooled for reuse.
+        /// </summary>
+        public bool Cfg_ClearConnectionPoolOnClose { get; set; } = true;
+
         #endregion
 
 
@@ -156,7 +163,7 @@ namespace OGA.MSSQL
                     "Attempting to open a connection to SQL Server...");
 
                 // Attempt to create a connection...
-                var res = this.CreateConnection();
+                var res = this._CreateConnection();
                 if(res.res != 1 || res.conn == null)
                 {
                     // Connection failed.
@@ -203,6 +210,10 @@ namespace OGA.MSSQL
             }
         }
 
+        /// <summary>
+        /// Public method that will disconnect a database connection.
+        /// </summary>
+        /// <returns></returns>
         public int Disconnect()
         {
             OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
@@ -210,17 +221,7 @@ namespace OGA.MSSQL
                 "Attempting to close and disposed SQL Server connection...");
 
             // Cleanup the sql connection.
-            try
-            {
-                _dbConnection?.Close();
-            }
-            catch (Exception) { }
-            try
-            {
-                _dbConnection?.Dispose();
-            }
-            catch (Exception) { }
-
+            this.CloseandDisposeConnection(_dbConnection);
             _dbConnection = null;
 
             _explicit_ConnectionOpen_Called = false;
@@ -304,8 +305,7 @@ namespace OGA.MSSQL
             try
             {
                 // Check if we already have an open connection...
-                if(this._explicit_ConnectionOpen_Called &&
-                    this._dbConnection != null &&
+                if(this._dbConnection != null &&
                     this._dbConnection.State == System.Data.ConnectionState.Open)
                 {
                     // The connection is already open.
@@ -313,11 +313,13 @@ namespace OGA.MSSQL
 
                     return 1;
                 }
-                // No connection exists.
+                // No connection exists, or is not open.
 
                 // Attempt to create a connection...
-                var res = this.CreateConnection();
-                if(res.res != 1 || res.conn == null)
+                // This will create a local instance, not one for the class.
+                // We will decide to accept it, or not.
+                var res1 = this._CreateConnection();
+                if(res1.res != 1 || res1.conn == null)
                 {
                     // Connection failed.
 
@@ -328,9 +330,39 @@ namespace OGA.MSSQL
                     return -1;
                 }
                 // If here, we were able to open a connection.
+                // This means we have tested the connection.
 
-                // Return success to the caller.
-                return 1;
+                // Check if the caller is managing connection lifetime...
+                if(this._explicit_ConnectionOpen_Called)
+                {
+                    // The caller called Connect() at some point.
+                    // And if we're here, then the existing connection is not open.
+                    // And, we created a new one.
+
+                    // So, we will close out any existing connection, and replace it with the one we just made.
+                    this.CloseandDisposeConnection(this._dbConnection);
+
+                    // Accept the new connection for the class...
+                    this._dbConnection = res1.conn;
+
+                    // Return success to the caller.
+                    return 1;
+                }
+                else
+                {
+                    // The caller did not call Connect().
+                    // So, the caller is not managing connection lifetime.
+                    // We will be doing so, here.
+
+                    // Close and dispose it...
+                    // And, we will assume the caller is wanting to simply test the connection, since they are not handling lifetime.
+                    // So, we will remove it from the pool.
+                    this.CloseandDisposeConnection(res1.conn, true);
+                    res1.conn = null;
+
+                    // Return success to the caller.
+                    return 1;
+                }
             }
             catch(Exception e)
             {
@@ -340,11 +372,6 @@ namespace OGA.MSSQL
 
                 return -2;
             }
-            finally
-            {
-                if(!this._explicit_ConnectionOpen_Called)
-                    this.Disconnect();
-            }
         }
 
         /// <summary>
@@ -352,7 +379,7 @@ namespace OGA.MSSQL
         /// This was done, to consolidate connection creation logic, for easier management.
         /// </summary>
         /// <returns></returns>
-        private (int res, System.Data.SqlClient.SqlConnection? conn) CreateConnection()
+        private (int res, System.Data.SqlClient.SqlConnection? conn) _CreateConnection()
         {
             bool success = false;
             System.Data.SqlClient.SqlConnection? conn = null;
@@ -361,7 +388,7 @@ namespace OGA.MSSQL
             if (string.IsNullOrWhiteSpace(_connstring))
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
-                    $"{_classname}:-:{nameof(CreateConnection)} - " +
+                    $"{_classname}:-:{nameof(_CreateConnection)} - " +
                     "Attempting to setup SQL connection string...");
 
                 // No connection string was defined.
@@ -370,7 +397,7 @@ namespace OGA.MSSQL
                 {
                     // An error occurred while piecing together the connection string.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(CreateConnection)} - " +
+                        $"{_classname}:-:{nameof(_CreateConnection)} - " +
                         "An error occurred while piecing together the connection string.");
 
                     return (-1, null);
@@ -380,13 +407,13 @@ namespace OGA.MSSQL
             // If here, we have the connection string.
 
             OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
-                $"{_classname}:-:{nameof(CreateConnection)} - " +
+                $"{_classname}:-:{nameof(_CreateConnection)} - " +
                 "SQL connection string composed for use.");
 
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
-                    $"{_classname}:-:{nameof(CreateConnection)} - " +
+                    $"{_classname}:-:{nameof(_CreateConnection)} - " +
                     "Attempting to open a connection to SQL Server...");
 
                 // Attempt to connect to the database.
@@ -401,7 +428,7 @@ namespace OGA.MSSQL
                     // Timed out waiting for open state.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:-:{nameof(CreateConnection)} - " +
+                        $"{_classname}:-:{nameof(_CreateConnection)} - " +
                         "Connection failed to reach Open state.");
 
                     return (-2, null);
@@ -409,7 +436,7 @@ namespace OGA.MSSQL
                 // If here, the connection reads as Open.
 
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Trace(
-                    $"{_classname}:-:{nameof(CreateConnection)} - " +
+                    $"{_classname}:-:{nameof(_CreateConnection)} - " +
                     "Connection opened to SQL Server.");
 
                 success = true;
@@ -417,12 +444,34 @@ namespace OGA.MSSQL
                 // If here, we have a connection we can use to query for data.
                 return (1, conn);
             }
+            catch (System.Data.SqlClient.SqlException se)
+            {
+                if(se.Message.Contains("Login failed for user"))
+                {
+                    // The given user cannot connect to the given database.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(se,
+                        $"{_classname}:-:{nameof(_CreateConnection)} - " +
+                        $"Login ({(this.username ?? "")}) failed to connect to database ({(this.database ?? "")}).");
+
+                    return (-3, null);
+                }
+
+                // Something went wrong while attempting to connect to the database.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(se,
+                    $"{_classname}:-:{nameof(_CreateConnection)} - " +
+                    "SQLException was caught while connecting to the database.");
+
+                return (-2, null);
+            }
             catch (Exception e)
             {
+                var et = e.GetType();
                 // Something went wrong while attempting to connect to the database.
 
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
-                    $"{_classname}:-:{nameof(CreateConnection)} - " +
+                    $"{_classname}:-:{nameof(_CreateConnection)} - " +
                     "An exception was caught while connecting to the database.");
 
                 return (-2, null);
@@ -431,15 +480,7 @@ namespace OGA.MSSQL
             {
                 if(!success)
                 {
-                    try
-                    {
-                        conn?.Close();
-                    } catch(Exception) { }
-                    try
-                    {
-                        conn?.Dispose();
-                    } catch(Exception) { }
-
+                    this.CloseandDisposeConnection(conn);
                     conn = null;
                 }
             }
@@ -1176,13 +1217,18 @@ namespace OGA.MSSQL
 
         /// <summary>
         /// Performs a non-query command.
+        /// CALL THIS METHOD FOR COMMANDS THAT CHANGE DATA OR SCHEMA: INSERT, UPDATE, DELETE, CREATE, ALTER, etc...
         /// Accepts a timeout in seconds. 0 for no timeout.
-        /// Returns 1 for success. Negatives for error.
+        /// NOTES on return values:
+        /// When executing DDL (CREATE, ALTER, DROP, GRANT, or RENAME), this will return a -1 for success. "-1" simply means no rows to count.
+        /// When executing SELECT, this will return -1, because the caller needs to use ExecuteReader or ExecuteScalar to see results.
+        /// When executing INSERT, UPDATE, or DELETE, this returns the number of rows affected.
+        /// Other negatives indicate a problem with the call or a specific error received.
         /// </summary>
         /// <param name="querystring"></param>
         /// <param name="timeout"></param>
         /// <returns></returns>
-        public int Execute_NonQuery(string querystring, int timeout = 30)
+        public (int res, string err) Execute_NonQuery(string querystring, int timeout = 30)
         {
             System.Data.SqlClient.SqlCommand cmd = null;
 
@@ -1194,7 +1240,7 @@ namespace OGA.MSSQL
                     $"{_classname}:-:{nameof(Execute_NonQuery)} - " +
                     "Already disposed.");
 
-                return -1;
+                return (-2, "Already disposed");
             }
 
             try
@@ -1210,7 +1256,7 @@ namespace OGA.MSSQL
                         $"{_classname}:-:{nameof(Execute_NonQuery)} - " +
                         "Already disposed.");
 
-                    return -1;
+                    return (-2, "Already disposed");
                 }
                 // If here, we have a connection we can use.
 
@@ -1220,8 +1266,20 @@ namespace OGA.MSSQL
                     cmd = new System.Data.SqlClient.SqlCommand(querystring, _dbConnection);
                     cmd.CommandTimeout = timeout;
 
+                    // If the ExecuteNonQuery() method returns, it was successful.
+                    // It throws exceptions if it errors.
                     int res = cmd.ExecuteNonQuery();
-                    return res;
+                    return (res, "");
+                }
+                catch (SqlException ex) when (ex.Number == 15118)
+                {
+                    // 15118 = password complexity failure
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:-:{nameof(Execute_NonQuery)} - " +
+                        "This call is handling a sql command to set or change a user's password, and the password is not meeting the host's password complexity policy.");
+
+                    return (-88, "Password violates complexity rule.");
                 }
                 catch (System.Data.SqlClient.SqlException f)
                 {
@@ -1246,7 +1304,7 @@ namespace OGA.MSSQL
 
                         //}
 
-                        return -10;
+                        return (-10, "Timeout Occurred.");
                     }
                     else
                     {
@@ -1256,7 +1314,7 @@ namespace OGA.MSSQL
                             $"{_classname}:-:{nameof(Execute_NonQuery)} - " +
                             "SQLException occurred while running SQL command.");
 
-                        return -30;
+                        return (-30, "SQLException occurred while running SQL command.");
                     }
                 }
                 catch (Exception e)
@@ -1267,7 +1325,7 @@ namespace OGA.MSSQL
                         $"{_classname}:-:{nameof(Execute_NonQuery)} - " +
                         "Exception occurred while running SQL command.");
 
-                    return -30;
+                    return (-30, "Exception occured");
                 }
             }
             finally
@@ -1279,6 +1337,34 @@ namespace OGA.MSSQL
                 if(!this._explicit_ConnectionOpen_Called)
                     this.Disconnect();
             }
+        }
+
+        /// <summary>
+        /// Properly closes and disposes a given database connection.
+        /// </summary>
+        /// <param name="conn"></param>
+        /// <param name="clearpool"></param>
+        private void CloseandDisposeConnection(System.Data.SqlClient.SqlConnection? conn, bool clearpool = false)
+        {
+            // Cleanup the sql connection.
+            try
+            {
+                conn?.Close();
+            } catch(Exception) { }
+
+            // Clear the connection from the pool if required...
+            if((this.Cfg_ClearConnectionPoolOnClose || clearpool) && conn != null)
+            {
+                try
+                {
+                    SqlConnection.ClearPool(conn);
+                }
+                catch (Exception) { }
+            }
+            try
+            {
+                conn?.Dispose();
+            } catch(Exception) { }
         }
 
         /// <summary>

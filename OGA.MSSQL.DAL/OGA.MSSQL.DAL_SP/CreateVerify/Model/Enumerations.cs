@@ -140,4 +140,12 @@ namespace OGA.MSSQL.DAL.CreateVerify.Model
         /// </summary>
         GenerateByDefault = 1,
     }
+
+    public enum eAccessMode
+    {
+        Unknown,
+        SingleUser,
+        MultiUser,
+        RestrictedUser
+    }
 }

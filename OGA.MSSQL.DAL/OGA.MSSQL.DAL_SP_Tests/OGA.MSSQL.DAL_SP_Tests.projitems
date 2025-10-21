@@ -9,10 +9,9 @@
     <Import_RootNamespace>OGA.MSSQL.DAL_SP_Tests</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\ProjectTest_Base.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\TestTemplate_Assembly.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)MSSQL_Tools_Tests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TableColumnMgmt_Tests.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="$(MSBuildThisFileDirectory)Helpers\" />
   </ItemGroup>
 </Project>
