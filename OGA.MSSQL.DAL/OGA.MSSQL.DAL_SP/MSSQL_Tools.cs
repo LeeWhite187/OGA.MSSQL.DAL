@@ -4,13 +4,16 @@ using Mono.Unix.Native;
 using NLog.LayoutRenderers;
 using OGA.MSSQL.DAL;
 using OGA.MSSQL.DAL.CreateVerify.Model;
+using OGA.MSSQL.DAL.Model;
 using OGA.MSSQL.DAL_SP.Model;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics.Arm;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -307,6 +310,238 @@ namespace OGA.MSSQL
             }
             finally
             {
+            }
+        }
+
+        /// <summary>
+        /// Checks if a file exists on the SQL Engine host, via its command line access.
+        /// Running this, requires executing SQLEngine_DisableCmdShell(), first.
+        /// Returns 1 if present, 0 if not found, negatives for errors.
+        /// </summary>
+        /// <param name="filepath"></param>
+        /// <returns></returns>
+        public int SQLEngine_DoesFileExist(string filepath)
+        {
+            object tempval;
+
+            try
+            {
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(SQLEngine_DeleteFile)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Compose the string to delete the given file...
+                // This composite statement recovers the return value from the command shell execution, as @result.
+                // Then, it passes @result back to us as a scalar query result.
+                string sql = "DECLARE @result TABLE (output NVARCHAR(255)); " +
+                            "INSERT INTO @result EXEC xp_cmdshell 'IF EXIST \"" + filepath + "\" (ECHO 1) ELSE (ECHO 0)'; " +
+                            "SELECT TOP 1 output FROM @result WHERE output IS NOT NULL;";
+
+
+                //string sql = "EXEC xp_cmdshell 'DEL \"" + filepath + "\"';";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                //int res = _dal.Execute_NonQuery(sql);
+                int res = _master_dal.Execute_Scalar(sql, System.Data.CommandType.Text, out tempval);
+                if (res != 0)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while performing file delete on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                // See if we found the database.
+                int val = 0;
+                try
+                {
+                    if (tempval == null)
+                    {
+                        // The received value is null.
+                        // Default it to no...
+                        return 0;
+                    }
+
+                    // Attempt to recover the answer from the scalar call...
+                    int.TryParse(tempval.ToString(), out val);
+
+                    if (val > 0)
+                    {
+                        // File was found.
+                        return 1;
+                    }
+                    else
+                    {
+                        return 0;
+                    }
+                }
+                catch (Exception e)
+                {
+                    // If here, no file was found.
+                    return 0;
+                }
+            }
+            catch (Exception e)
+            {
+                return -10;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to enable command shell access on the SQL Engine.
+        /// </summary>
+        /// <returns></returns>
+        public int SQLEngine_EnableCmdShell()
+        {
+            try
+            {
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(SQLEngine_DeleteFile)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Enable advanced options...
+                string sql1 = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                if (_master_dal.Execute_NonQuery(sql1).res != -1)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while enabling command shell access on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                // Enable command shell...
+                string sql2 = "EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                if (_master_dal.Execute_NonQuery(sql2).res != -1)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while enabling command shell access on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                return -10;
+            }
+        }
+        /// <summary>
+        /// Attempts to disable command shell access on the SQL Engine.
+        /// </summary>
+        /// <returns></returns>
+        public int SQLEngine_DisableCmdShell()
+        {
+            try
+            {
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(SQLEngine_DeleteFile)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Disable command shell...
+                string sql2 = "EXEC sp_configure 'xp_cmdshell', 0; RECONFIGURE;";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                if (_master_dal.Execute_NonQuery(sql2).res != -1)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while disabling command shell access on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                return -10;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to delete a file on the SQL Engine host, via its command line access.
+        /// Running this, requires executing SQLEngine_DisableCmdShell(), first.
+        /// </summary>
+        /// <param name="filepath"></param>
+        /// <returns></returns>
+        public int SQLEngine_DeleteFile(string filepath)
+        {
+            try
+            {
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(SQLEngine_DeleteFile)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Compose the string to delete the given file...
+                // This composite statement recovers the return value from the command shell execution, as @result.
+                // Then, it passes @result back to us as a scalar query result.
+                string sql = "DECLARE @result INT; " +
+                              "EXEC @result = xp_cmdshell 'DEL \"" + filepath + "\"'; " +
+                              "SELECT @result;";
+                //string sql = "EXEC xp_cmdshell 'DEL \"" + filepath + "\"';";
+                // We have the sql script to run.
+
+                // Execute it on the sql server instance...
+                //int res = _dal.Execute_NonQuery(sql);
+                int res = _master_dal.Execute_Scalar(sql, System.Data.CommandType.Text, out var result);
+                if (res != 0)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Error occurred while performing file delete on SQL server."
+                        , _classname);
+
+                    return -1;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                return -10;
             }
         }
 
@@ -650,7 +885,7 @@ namespace OGA.MSSQL
 
             try
             {
-                // Check that the database name was give.
+                // Check that the database name was given.
                 if (String.IsNullOrWhiteSpace(database))
                 {
                     // database name not set.
@@ -875,17 +1110,17 @@ namespace OGA.MSSQL
                     return -2;
                 }
                 // The database exists.
-                // We will attempt to convert it to single user.
+                // We will attempt to convert it to multi user.
 
-                string sql = "ALTER DATABASE [" + database + "] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
+                string sql = "ALTER DATABASE [" + database + "] SET MULTI_USER WITH ROLLBACK IMMEDIATE;";
                 // We have the sql script to run.
 
                 // Execute it on the sql server instance.
                 if (_master_dal.Execute_NonQuery(sql).res != -1)
                 {
-                    // Error occurred while converting the database to single user.
+                    // Error occurred while converting the database to multi user.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                    "Error occurred while converting the database to single user."
+                    "Error occurred while converting the database to multi user."
                         , _classname);
 
                     return -4;
@@ -933,10 +1168,12 @@ namespace OGA.MSSQL
         /// <summary>
         /// Drops the given database from the SQL Server instance.
         /// Returns 1 for success. Negatives for errors.
+        /// Set 'force' to true, if there may be other clients connected to the database.
         /// </summary>
         /// <param name="database"></param>
+        /// <param name="force"></param>
         /// <returns></returns>
-        public int Drop_Database(string database)
+        public int Drop_Database(string database, bool force = false)
         {
             try
             {
@@ -992,7 +1229,22 @@ namespace OGA.MSSQL
 
                 var paths = resp.filepaths;
 
-                string sql = "DROP DATABASE " + database + ";";
+
+                // Compose the drop statement, and include a single user mode if needed...
+                string sql;
+                if (force)
+                {
+                    sql = $@"IF DB_ID('{database}') IS NOT NULL
+                            BEGIN
+                                ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+                                DROP DATABASE [{database}];
+                            END;";
+                }
+                else
+                {
+                    sql = $@"IF DB_ID('{database}') IS NOT NULL
+                                DROP DATABASE [{database}];";
+                }
                 // We have the sql script to run.
 
                 // Execute it on the sql server instance.
@@ -1429,6 +1681,99 @@ namespace OGA.MSSQL
             }
         }
 
+        /// <summary>
+        /// Gets the disk space used by the given database.
+        /// Returns 1 if found, 0 if not, negatives for errors.
+        /// </summary>
+        /// <param name="databaseName"></param>
+        /// <returns></returns>
+        public (int res, long size) Get_DatabaseSize(string databaseName)
+        {
+            System.Data.DataTable dt = null;
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_DatabaseSize)} - " +
+                    $"Attempting to get disk size for database, {databaseName ?? ""}...");
+
+                if(string.IsNullOrWhiteSpace(databaseName))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_DatabaseSize)} - " +
+                        "Empty database.");
+
+                    return (-1, 0);
+                }
+
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_DatabaseSize)} - " +
+                        $"Failed to connect to server.");
+
+                    return (-1, 0);
+                }
+                // We have a persistent connection.
+
+                // Compose the sql query we will perform.
+                string sql = @$"SELECT
+                                    SUM(size) * 8 * 1024 AS DatabaseSizeBytes,
+                                    CAST(SUM(size) * 8 / 1024.0 AS DECIMAL(10,2)) AS DatabaseSizeMB
+                                FROM sys.master_files
+                                WHERE database_id = DB_ID('{databaseName}');";
+
+                if (_master_dal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get database size.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_DatabaseSize)} - " +
+                        $"Failed to get disk size for database, {databaseName ?? ""}.");
+
+                    return (-2, 0);
+                }
+                // We have a database size.
+
+                // See if it contains anything.
+                if (dt.Rows.Count != 1)
+                {
+                    // Database not found.
+
+                    return (0, 0);
+                }
+                // If here, we have the database entry.
+
+                var resconv = MSSQL_DAL.Recover_FieldValue_from_DBRow(dt.Rows[0], "DatabaseSizeBytes", out long val);
+                if(resconv != 1 || val == null)
+                {
+                    // Database not found.
+
+                    return (0, 0);
+                }
+
+                return (1, val);
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_DatabaseSize)} - " +
+                    "Exception occurred");
+
+                return (-20, 0);
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
+
         #endregion
 
 
@@ -1610,6 +1955,7 @@ namespace OGA.MSSQL
 
         /// <summary>
         /// Returns 1 on success, 0 if already present, negatives for errors.
+        /// Returns -3 if password is invalid.
         /// </summary>
         /// <param name="login">Account login string</param>
         /// <param name="password">Account password</param>
@@ -1658,9 +2004,18 @@ namespace OGA.MSSQL
                 string sql = "CREATE LOGIN [" + login + "] WITH PASSWORD = '" + password + "', DEFAULT_DATABASE = [master], DEFAULT_LANGUAGE = [us_english];";
 
                 var resadd = _master_dal.Execute_NonQuery(sql);
+                if(resadd.res == -88 && resadd.err.Contains("Password violates complexity rule."))
+                {
+                    // Password violates complexity rule.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:-:{nameof(Add_LocalLogin)} - " +
+                        "Password violates complexity rule.");
+
+                    return -3;
+                }
                 if (resadd.res != -1)
                 {
-                    // Failed to get logins from the sql server instance.
+                    // Failed to add login to sql server instance.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
                         $"{_classname}:-:{nameof(Add_LocalLogin)} - " +
                         "Failed to add login to sql server instance.");
@@ -1677,6 +2032,171 @@ namespace OGA.MSSQL
                     "Exception occurred");
 
                 return -20;
+            }
+        }
+
+        /// <summary>
+        /// Returns 1 for success. Negatives for errors.
+        /// </summary>
+        /// <param name="loginlist">Account login strings</param>
+        /// <returns></returns>
+        public int GetLoginList(out List<string> loginlist)
+        {
+            loginlist = new List<string>();
+            System.Data.DataTable dt = null;
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(GetLoginList)} - " +
+                    $"Attempting to get login list on SQL Host...");
+
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Add_WindowsLogin)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Compose the sql query to get logins on the SQL Host...
+                string sql = "SELECT name AS LoginName " +
+                             "FROM sys.server_principals " +
+                             "WHERE type IN ('S', 'U', 'G') " +
+                             "ORDER BY name ASC;";
+
+                if (this._master_dal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get users.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(GetLoginList)} - " +
+                        "Failed to get logins.");
+
+                    return -2;
+                }
+                // We have a datatable of logins.
+
+                // See if it contains anything.
+                if (dt.Rows.Count == 0)
+                    return 1;
+
+                foreach (System.Data.DataRow r in dt.Rows)
+                {
+                    // Get the current user...
+                    string sss = r["LoginName"] + "";
+                    loginlist.Add(sss);
+                }
+
+                return 1;
+            }
+            catch(Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(GetLoginList)} - " +
+                    $"Exception occurred while getting a list of logins on the SQL host.");
+
+                return -20;
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
+
+        /// <summary>
+        /// Returns 1 for success. Negatives for errors.
+        /// </summary>
+        /// <param name="database">Database name</param>
+        /// <param name="userlist">Database user list of strings</param>
+        /// <returns></returns>
+        public int GetDatabaseUsers(string database, out List<string> userlist)
+        {
+            userlist = new List<string>();
+            System.Data.DataTable dt = null;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(database))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(GetDatabaseUsers)} - " +
+                        $"Empty database name.");
+
+                    return -1;
+                }
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(GetDatabaseUsers)} - " +
+                    $"Attempting to get user list for database ({(database ?? "")})...");
+
+                // Connect to the database...
+                // This action requires a connection to the target database.
+                var dbdal = this.GetDatabaseDAL(database);
+                if(dbdal == null)
+                {
+                    // Failed to connect to target database.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(GetDatabaseUsers)} - " +
+                        "Failed to connect to target database.");
+
+                    return -1;
+                }
+
+                // Compose the sql query to get users in a database...
+                string sql = @"SELECT name AS UserName
+                               FROM sys.database_principals
+                               WHERE type IN ('S', 'U', 'G')  -- S=SQL user, U=Windows user, G=Windows group
+                                 AND name NOT IN ('guest', 'INFORMATION_SCHEMA', 'sys')  -- filter system users
+                               ORDER BY name ASC;";
+
+                if (dbdal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get users.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(GetDatabaseUsers)} - " +
+                        $"Failed to get users for database ({(database ?? "")}).");
+
+                    return -2;
+                }
+                // We have a datatable of logins.
+
+                // See if it contains anything.
+                if (dt.Rows.Count == 0)
+                    return 1;
+
+                foreach (System.Data.DataRow r in dt.Rows)
+                {
+                    // Get the current user...
+                    string sss = r["UserName"] + "";
+                    userlist.Add(sss);
+                }
+
+                return 1;
+            }
+            catch(Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(GetDatabaseUsers)} - " +
+                    $"Exception occurred while getting a list of users for database ({(database ?? "")}).");
+
+                return -20;
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
             }
         }
 
@@ -1842,7 +2362,7 @@ namespace OGA.MSSQL
         /// <param name="database">Name of database</param>
         /// <param name="desiredroles">List of desired roles to add to user</param>
         /// <returns></returns>
-        public int Add_User_to_Database(string login, string database, List<eDBRoles>? desiredroles = null)
+        public int Add_User_to_Database(string login, string database, List<eSQLRoles>? desiredroles = null)
         {
             try
             {
@@ -1906,7 +2426,7 @@ namespace OGA.MSSQL
                 // We will reconcile user roles to match desired.
 
                 // Get a list of roles that the user currently has...
-                if (this.Get_DBRoles_for_Login(login, database, out var foundroles) != 1)
+                if (this.Get_DatabaseRoles_for_User(login, database, out var foundroles) != 1)
                 {
                     // Failed to get roles for the user.
                     return -2;
@@ -1968,7 +2488,7 @@ namespace OGA.MSSQL
                         , _classname, database);
 
                 // Execute the add and drop role commands, to update the user's membership with desired...
-                if (dbdal.Execute_NonQuery(sql).res != 1)
+                if (dbdal.Execute_NonQuery(sql).res != -1)
                 {
                     // Failed to update database roles to the sql server instance.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
@@ -1988,60 +2508,6 @@ namespace OGA.MSSQL
 
                 return -20;
             }
-        }
-
-        /// <summary>
-        /// Determines the net changes between two given sets of database roles.
-        /// Used by logic that updates user database roles as required.
-        /// </summary>
-        /// <param name="existingprivs"></param>
-        /// <param name="desiredprivs"></param>
-        /// <returns></returns>
-        static public List<(bool isgrant, eDBRoles sfsd)> DetermineDatabaseRoleChanges(List<eDBRoles> existingprivs, List<eDBRoles> desiredprivs)
-        {
-            var pcl = new List<(bool isgrant, eDBRoles priv)>();
-
-            // Figure out desiredprivs to add...
-            if (desiredprivs.Contains(eDBRoles.db_accessadmin) && !existingprivs.Contains(eDBRoles.db_accessadmin))
-                pcl.Add((true, eDBRoles.db_accessadmin));
-            if (desiredprivs.Contains(eDBRoles.db_backupoperator) && !existingprivs.Contains(eDBRoles.db_backupoperator))
-                pcl.Add((true, eDBRoles.db_backupoperator));
-            if (desiredprivs.Contains(eDBRoles.db_datareader) && !existingprivs.Contains(eDBRoles.db_datareader))
-                pcl.Add((true, eDBRoles.db_datareader));
-            if (desiredprivs.Contains(eDBRoles.db_datawriter) && !existingprivs.Contains(eDBRoles.db_datawriter))
-                pcl.Add((true, eDBRoles.db_datawriter));
-            if (desiredprivs.Contains(eDBRoles.db_ddladmin) && !existingprivs.Contains(eDBRoles.db_ddladmin))
-                pcl.Add((true, eDBRoles.db_ddladmin));
-            if (desiredprivs.Contains(eDBRoles.db_denydatareader) && !existingprivs.Contains(eDBRoles.db_denydatareader))
-                pcl.Add((true, eDBRoles.db_denydatareader));
-            if (desiredprivs.Contains(eDBRoles.db_denydatawriter) && !existingprivs.Contains(eDBRoles.db_denydatawriter))
-                pcl.Add((true, eDBRoles.db_denydatawriter));
-            if (desiredprivs.Contains(eDBRoles.db_owner) && !existingprivs.Contains(eDBRoles.db_owner))
-                pcl.Add((true, eDBRoles.db_owner));
-            if (desiredprivs.Contains(eDBRoles.db_securityadmin) && !existingprivs.Contains(eDBRoles.db_securityadmin))
-                pcl.Add((true, eDBRoles.db_securityadmin));
-
-            // Figure out privileges to remove...
-            if (!desiredprivs.Contains(eDBRoles.db_accessadmin) && existingprivs.Contains(eDBRoles.db_accessadmin))
-                pcl.Add((false, eDBRoles.db_accessadmin));
-            if (!desiredprivs.Contains(eDBRoles.db_backupoperator) && existingprivs.Contains(eDBRoles.db_backupoperator))
-                pcl.Add((false, eDBRoles.db_backupoperator));
-            if (!desiredprivs.Contains(eDBRoles.db_datareader) && existingprivs.Contains(eDBRoles.db_datareader))
-                pcl.Add((false, eDBRoles.db_datareader));
-            if (!desiredprivs.Contains(eDBRoles.db_datawriter) && existingprivs.Contains(eDBRoles.db_datawriter))
-                pcl.Add((false, eDBRoles.db_datawriter));
-            if (!desiredprivs.Contains(eDBRoles.db_ddladmin) && existingprivs.Contains(eDBRoles.db_ddladmin))
-                pcl.Add((false, eDBRoles.db_ddladmin));
-            if (!desiredprivs.Contains(eDBRoles.db_denydatareader) && existingprivs.Contains(eDBRoles.db_denydatareader))
-                pcl.Add((false, eDBRoles.db_denydatareader));
-            if (!desiredprivs.Contains(eDBRoles.db_denydatawriter) && existingprivs.Contains(eDBRoles.db_denydatawriter))
-                pcl.Add((false, eDBRoles.db_denydatawriter));
-            if (!desiredprivs.Contains(eDBRoles.db_owner) && existingprivs.Contains(eDBRoles.db_owner))
-                pcl.Add((false, eDBRoles.db_owner));
-            if (!desiredprivs.Contains(eDBRoles.db_securityadmin) && existingprivs.Contains(eDBRoles.db_securityadmin))
-                pcl.Add((false, eDBRoles.db_securityadmin));
-
-            return pcl;
         }
 
         /// <summary>
@@ -2124,8 +2590,11 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
-        /// Public call to change a user password.
+        /// Public call to change a login password.
+        /// NOTE: A login is a server-level object.
+        /// NOTE: So, changing a password requires having the systemadmin role, or granted ALTER LOGIN.
         /// Returns 1 for success. Negatives for errors.
+        /// Returns -3 if password is invalid.
         /// </summary>
         /// <param name="username"></param>
         /// <param name="password"></param>
@@ -2162,7 +2631,31 @@ namespace OGA.MSSQL
 
                 // Change the user password...
                 string sql = $"ALTER LOGIN [{username}] WITH PASSWORD = '{password}';";
-                if (this._master_dal.Execute_NonQuery(sql).res != -1)
+                var respf = this._master_dal.Execute_NonQuery(sql);
+                if(respf.res == -88 && respf.err.Contains("Password violates complexity rule."))
+                {
+                    // Password violates complexity rule.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:-:{nameof(ChangeLoginPassword)} - " +
+                        "Password violates complexity rule.");
+
+                    return -3;
+                }
+                if (respf.res != -1)
+                {
+                    // Failed to change password.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:-:{nameof(ChangeLoginPassword)} - " +
+                        "Failed to change password.");
+
+                    return -2;
+                }
+
+                return 1;
+
+
+
+                if (respf.res != -1)
                 {
                     // Change user password command failed.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
@@ -2193,35 +2686,497 @@ namespace OGA.MSSQL
         #region Permissions Management
 
         /// <summary>
-        /// Get Database Roles assigned to the given Login.
+        /// Adds the given server role to a SQL host login.
+        /// Returns 1 on success, 1 if already set, negatives for errors.
+        /// </summary>
+        /// <param name="login">Account login string</param>
+        /// <param name="desiredrole">desired role for the login to have</param>
+        /// <returns></returns>
+        public int Add_Login_Role(string login, eSQLRoles desiredrole)
+        {
+            try
+            {
+                // Check that the login is is in the logins list already, on the SQL Host.
+                int res = this.Does_Login_Exist(login);
+                if (res != 1)
+                {
+                    // Error occurred.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Login not found found."
+                            , _classname);
+
+                    return -1;
+                }
+                // Login exists as a server-principle.
+
+                if(desiredrole == eSQLRoles.none)
+                {
+                    // The desired roles is null.
+                    // We regard this as an error.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Desired roles cannot be null."
+                            , _classname);
+
+                    return -1;
+                }
+
+                // Get a list of roles that the login currently has...
+                if (this.Get_SQlHostRoles_for_Login(login, out var foundroles) != 1)
+                {
+                    // Failed to get roles for the login.
+                    return -2;
+                }
+                // We have current roles for the login.
+
+                // See if the role is already present...
+                if(foundroles.Any(m=>m == desiredrole))
+                {
+                    // Already present.
+                    // Nothing to do.
+                    return 1;
+                }
+
+                // Role to add.
+                string sql = $"ALTER SERVER ROLE [{desiredrole.ToString()}] ADD MEMBER [{login}];";
+                // sqlremove = sqlremove + $"ALTER ROLE [{r.ToString()}] DROP MEMBER [{login}];";
+
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+                // We will add the role to the login.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "Attempting to add SQL Host role for login..."
+                        , _classname);
+
+                // Execute the add role command, to update the login's...
+                if (this._master_dal.Execute_NonQuery(sql).res != -1)
+                {
+                    // Failed to update SQL Host role to the sql server instance.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to update SQL Host role to the sql server instance."
+                            , _classname);
+
+                    return -2;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred."
+                    , _classname);
+
+                return -20;
+            }
+        }
+
+        /// <summary>
+        /// Removes the given server role from a SQL host login.
+        /// Returns 1 on success, negatives for errors.
+        /// </summary>
+        /// <param name="login">Account login string</param>
+        /// <param name="desiredrole">server role to remove</param>
+        /// <returns></returns>
+        public int Drop_Login_Role(string login, eSQLRoles desiredrole)
+        {
+            try
+            {
+                // Check that the login is is in the logins list already, on the SQL Host.
+                int res = this.Does_Login_Exist(login);
+                if (res != 1)
+                {
+                    // Error occurred.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Login not found found."
+                            , _classname);
+
+                    return -1;
+                }
+                // Login exists as a server-principle.
+
+                if(desiredrole == eSQLRoles.none)
+                {
+                    // The desired roles is null.
+                    // We regard this as an error.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Desired roles cannot be null."
+                            , _classname);
+
+                    return -1;
+                }
+
+                // Get a list of roles that the login currently has...
+                if (this.Get_SQlHostRoles_for_Login(login, out var foundroles) != 1)
+                {
+                    // Failed to get roles for the login.
+                    return -2;
+                }
+                // We have current roles for the login.
+
+                // See if the role is present...
+                if(!foundroles.Any(m=>m == desiredrole))
+                {
+                    // Not present.
+                    // Nothing to do.
+                    return 1;
+                }
+
+                // Role to remove.
+                string sql = $"ALTER SERVER ROLE [{desiredrole.ToString()}] DROP MEMBER [{login}];";
+
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+                // We will drop the role from the login.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "Attempting to drop SQL Host role from login..."
+                        , _classname);
+
+                // Execute the drop role command, to update the login's...
+                if (this._master_dal.Execute_NonQuery(sql).res != -1)
+                {
+                    // Failed to update SQL Host role to the sql server instance.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to update SQL Host role to the sql server instance."
+                            , _classname);
+
+                    return -2;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred."
+                    , _classname);
+
+                return -20;
+            }
+        }
+
+        /// <summary>
+        /// Determines if the given login has the given role.
+        /// Returns 1 if true, 0 if not, negatives for errors.
         /// </summary>
         /// <param name="login"></param>
-        /// <param name="database"></param>
+        /// <param name="role"></param>
+        /// <returns></returns>
+        public int Does_Login_HaveRole(string login, eSQLRoles role)
+        {
+            var resr = this.Get_SQlHostRoles_for_Login(login, out var loginroles);
+            if(resr != 1 || loginroles == null)
+            {
+                // Failed to get roles for user.
+                return -1;
+            }
+
+            // Check if the login has the role...
+            if (loginroles.Any(m => m == role))
+                return 1;
+            else
+                return 0;
+        }
+
+        /// <summary>
+        /// Sets the roles for a SQL host login.
+        /// Returns 1 on success, 0 if already set, negatives for errors.
+        /// </summary>
+        /// <param name="login">Account login string</param>
+        /// <param name="desiredroles">List of desired roles for the login to have</param>
+        /// <returns></returns>
+        public int Set_Login_Roles(string login, List<eSQLRoles> desiredroles)
+        {
+            try
+            {
+                // Check that the login is is in the logins list already, on the SQL Host.
+                int res = this.Does_Login_Exist(login);
+                if (res != 1)
+                {
+                    // Error occurred.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Login not found found."
+                            , _classname);
+
+                    return -1;
+                }
+                // Login exists as a server-principle.
+
+                if(desiredroles == null)
+                {
+                    // The desired roles is null.
+                    // We regard this as an error.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Desired roles cannot be null."
+                            , _classname);
+
+                    return -1;
+                }
+                // We will reconcile login roles to match desired.
+
+                // Get a list of roles that the login currently has...
+                if (this.Get_SQlHostRoles_for_Login(login, out var foundroles) != 1)
+                {
+                    // Failed to get roles for the login.
+                    return -2;
+                }
+                // We have current roles for the login.
+
+                // Reconcile the found roles with desired...
+                // From the given set of roles to expect for the login, and the current roles for the login, we need to determine the list of ones to add and one to remove.
+                var pcl = DetermineDatabaseRoleChanges(foundroles, desiredroles);
+                if(pcl.Count == 0)
+                {
+                    // No changes to make.
+                    return 1;
+                }
+
+                string sql = "";
+                string sqladd = "";
+                string sqlremove = "";
+
+                // Iterate the role change list, and compose the set of SQL instructions to execute...
+                foreach(var r in pcl)
+                {
+                    if(r.isgrant)
+                    {
+                        // Role to add.
+                        sqladd = sqladd + $"ALTER SERVER ROLE [{r.ToString()}] ADD MEMBER [{login}];";
+                    }
+                    else
+                    {
+                        // Role to remove.
+                        sqlremove = sqlremove + $"ALTER SERVER ROLE [{r.ToString()}] DROP MEMBER [{login}];";
+                    }
+                }
+
+                // Create a single sql command to run...
+                if(!string.IsNullOrWhiteSpace(sqladd))
+                    sql = sql + sqladd;
+                if(!string.IsNullOrWhiteSpace(sqlremove))
+                    sql = sql + sqlremove;
+
+                // At this point, we have a list of roles to add.
+
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+                // We will add each one to the login.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "Attempting to add SQL Host roles for login..."
+                        , _classname);
+
+                // Execute the add and drop role commands, to update the login's membership with desired...
+                if (this._master_dal.Execute_NonQuery(sql).res != -1)
+                {
+                    // Failed to update SQL Host roles to the sql server instance.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to update SQL Host roles to the sql server instance."
+                            , _classname);
+
+                    return -2;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred."
+                    , _classname);
+
+                return -20;
+            }
+        }
+
+        /// <summary>
+        /// Get SQL Host Roles assigned to the given Login.
+        /// </summary>
+        /// <param name="login"></param>
         /// <param name="roles"></param>
         /// <returns></returns>
-        public int Get_DBRoles_for_Login(string login, string database, out List<OGA.MSSQL.eDBRoles> roles)
+        public int Get_SQlHostRoles_for_Login(string login, out List<OGA.MSSQL.eSQLRoles> roles)
         {
             roles = null;
 
-            if (Get_DBRoles_for_Database(database, out var dbroles) != 1)
+            if (Get_Roles_for_SQLHost(out var serverroles) != 1)
+            {
+                // Error occurred.
+                return -1;
+            }
+            // If here, we have a list of roles.
+
+            roles = new List<eSQLRoles>();
+
+            // Sift through them for the given login.
+            foreach (var s in serverroles)
+            {
+                if (s.Login.ToLower() == login.ToLower())
+                {
+                    // Got a match.
+
+                    // See if we can recover a sql role from the Groupname field.
+                    eSQLRoles dbr = Recover_SQLRoles_from_String(s.GroupName);
+                    if (dbr == eSQLRoles.none)
+                    {
+                        // No sql role in the current record.
+                        // Nothing to add.
+                    }
+                    else
+                    {
+                        // sql role recovered.
+                        // Add it to the list.
+                        roles.Add(dbr);
+                    }
+                }
+            }
+
+            return 1;
+        }
+
+        /// <summary>
+        /// Determines the net changes between two given sets of database roles.
+        /// Used by logic that updates user database roles as required.
+        /// </summary>
+        /// <param name="existingprivs"></param>
+        /// <param name="desiredprivs"></param>
+        /// <returns></returns>
+        static public List<(bool isgrant, eSQLRoles sfsd)> DetermineDatabaseRoleChanges(List<eSQLRoles> existingprivs, List<eSQLRoles> desiredprivs)
+        {
+            var pcl = new List<(bool isgrant, eSQLRoles priv)>();
+
+            // Figure out desiredprivs to add...
+            if (desiredprivs.Contains(eSQLRoles.db_accessadmin) && !existingprivs.Contains(eSQLRoles.db_accessadmin))
+                pcl.Add((true, eSQLRoles.db_accessadmin));
+            if (desiredprivs.Contains(eSQLRoles.db_backupoperator) && !existingprivs.Contains(eSQLRoles.db_backupoperator))
+                pcl.Add((true, eSQLRoles.db_backupoperator));
+            if (desiredprivs.Contains(eSQLRoles.db_datareader) && !existingprivs.Contains(eSQLRoles.db_datareader))
+                pcl.Add((true, eSQLRoles.db_datareader));
+            if (desiredprivs.Contains(eSQLRoles.db_datawriter) && !existingprivs.Contains(eSQLRoles.db_datawriter))
+                pcl.Add((true, eSQLRoles.db_datawriter));
+            if (desiredprivs.Contains(eSQLRoles.db_ddladmin) && !existingprivs.Contains(eSQLRoles.db_ddladmin))
+                pcl.Add((true, eSQLRoles.db_ddladmin));
+            if (desiredprivs.Contains(eSQLRoles.db_denydatareader) && !existingprivs.Contains(eSQLRoles.db_denydatareader))
+                pcl.Add((true, eSQLRoles.db_denydatareader));
+            if (desiredprivs.Contains(eSQLRoles.db_denydatawriter) && !existingprivs.Contains(eSQLRoles.db_denydatawriter))
+                pcl.Add((true, eSQLRoles.db_denydatawriter));
+            if (desiredprivs.Contains(eSQLRoles.db_owner) && !existingprivs.Contains(eSQLRoles.db_owner))
+                pcl.Add((true, eSQLRoles.db_owner));
+            if (desiredprivs.Contains(eSQLRoles.db_securityadmin) && !existingprivs.Contains(eSQLRoles.db_securityadmin))
+                pcl.Add((true, eSQLRoles.db_securityadmin));
+            if (desiredprivs.Contains(eSQLRoles.sysadmin) && !existingprivs.Contains(eSQLRoles.sysadmin))
+                pcl.Add((true, eSQLRoles.sysadmin));
+            if (desiredprivs.Contains(eSQLRoles.diskadmin) && !existingprivs.Contains(eSQLRoles.diskadmin))
+                pcl.Add((true, eSQLRoles.diskadmin));
+            if (desiredprivs.Contains(eSQLRoles.bulkadmin) && !existingprivs.Contains(eSQLRoles.bulkadmin))
+                pcl.Add((true, eSQLRoles.bulkadmin));
+            if (desiredprivs.Contains(eSQLRoles.setupadmin) && !existingprivs.Contains(eSQLRoles.setupadmin))
+                pcl.Add((true, eSQLRoles.setupadmin));
+            if (desiredprivs.Contains(eSQLRoles.processadmin) && !existingprivs.Contains(eSQLRoles.processadmin))
+                pcl.Add((true, eSQLRoles.processadmin));
+            if (desiredprivs.Contains(eSQLRoles.serveradmin) && !existingprivs.Contains(eSQLRoles.serveradmin))
+                pcl.Add((true, eSQLRoles.serveradmin));
+            if (desiredprivs.Contains(eSQLRoles.dbcreator) && !existingprivs.Contains(eSQLRoles.dbcreator))
+                pcl.Add((true, eSQLRoles.dbcreator));
+
+            // Figure out privileges to remove...
+            if (!desiredprivs.Contains(eSQLRoles.db_accessadmin) && existingprivs.Contains(eSQLRoles.db_accessadmin))
+                pcl.Add((false, eSQLRoles.db_accessadmin));
+            if (!desiredprivs.Contains(eSQLRoles.db_backupoperator) && existingprivs.Contains(eSQLRoles.db_backupoperator))
+                pcl.Add((false, eSQLRoles.db_backupoperator));
+            if (!desiredprivs.Contains(eSQLRoles.db_datareader) && existingprivs.Contains(eSQLRoles.db_datareader))
+                pcl.Add((false, eSQLRoles.db_datareader));
+            if (!desiredprivs.Contains(eSQLRoles.db_datawriter) && existingprivs.Contains(eSQLRoles.db_datawriter))
+                pcl.Add((false, eSQLRoles.db_datawriter));
+            if (!desiredprivs.Contains(eSQLRoles.db_ddladmin) && existingprivs.Contains(eSQLRoles.db_ddladmin))
+                pcl.Add((false, eSQLRoles.db_ddladmin));
+            if (!desiredprivs.Contains(eSQLRoles.db_denydatareader) && existingprivs.Contains(eSQLRoles.db_denydatareader))
+                pcl.Add((false, eSQLRoles.db_denydatareader));
+            if (!desiredprivs.Contains(eSQLRoles.db_denydatawriter) && existingprivs.Contains(eSQLRoles.db_denydatawriter))
+                pcl.Add((false, eSQLRoles.db_denydatawriter));
+            if (!desiredprivs.Contains(eSQLRoles.db_owner) && existingprivs.Contains(eSQLRoles.db_owner))
+                pcl.Add((false, eSQLRoles.db_owner));
+            if (!desiredprivs.Contains(eSQLRoles.db_securityadmin) && existingprivs.Contains(eSQLRoles.db_securityadmin))
+                pcl.Add((false, eSQLRoles.db_securityadmin));
+            if (!desiredprivs.Contains(eSQLRoles.sysadmin) && existingprivs.Contains(eSQLRoles.sysadmin))
+                pcl.Add((false, eSQLRoles.sysadmin));
+            if (!desiredprivs.Contains(eSQLRoles.diskadmin) && existingprivs.Contains(eSQLRoles.diskadmin))
+                pcl.Add((false, eSQLRoles.diskadmin));
+            if (!desiredprivs.Contains(eSQLRoles.bulkadmin) && existingprivs.Contains(eSQLRoles.bulkadmin))
+                pcl.Add((false, eSQLRoles.bulkadmin));
+            if (!desiredprivs.Contains(eSQLRoles.setupadmin) && existingprivs.Contains(eSQLRoles.setupadmin))
+                pcl.Add((false, eSQLRoles.setupadmin));
+            if (!desiredprivs.Contains(eSQLRoles.processadmin) && existingprivs.Contains(eSQLRoles.processadmin))
+                pcl.Add((false, eSQLRoles.processadmin));
+            if (!desiredprivs.Contains(eSQLRoles.serveradmin) && existingprivs.Contains(eSQLRoles.serveradmin))
+                pcl.Add((false, eSQLRoles.serveradmin));
+            if (!desiredprivs.Contains(eSQLRoles.dbcreator) && existingprivs.Contains(eSQLRoles.dbcreator))
+                pcl.Add((false, eSQLRoles.dbcreator));
+
+            return pcl;
+        }
+
+        /// <summary>
+        /// Get Database Roles assigned to the given user.
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="database"></param>
+        /// <param name="roles"></param>
+        /// <returns></returns>
+        public int Get_DatabaseRoles_for_User(string user, string database, out List<OGA.MSSQL.eSQLRoles> roles)
+        {
+            roles = null;
+
+            if (Get_DatabaseRoles_for_Database(database, out var dbroles) != 1)
             {
                 // Error occurred.
                 return -1;
             }
             // If here, we have a list of roles for the database.
 
-            roles = new List<eDBRoles>();
+            roles = new List<eSQLRoles>();
 
-            // Sift through them for the given login.
+            // Sift through them for the given user.
             foreach (var s in dbroles)
             {
-                if (s.LoginName.ToLower() == login.ToLower())
+                if (s.LoginName.ToLower() == user.ToLower())
                 {
                     // Got a match.
 
                     // See if we can recover a database role from the Groupname field.
-                    eDBRoles dbr = Recover_DatabaseRole_from_String(s.GroupName);
-                    if (dbr == eDBRoles.none)
+                    eSQLRoles dbr = Recover_SQLRoles_from_String(s.GroupName);
+                    if (dbr == eSQLRoles.none)
                     {
                         // No database role in the current record.
                         // Nothing to add.
@@ -2244,7 +3199,7 @@ namespace OGA.MSSQL
         /// <param name="database"></param>
         /// <param name="roles"></param>
         /// <returns></returns>
-        public int Get_DBRoles_for_Database(string database, out List<OGA.MSSQL.Model.DBRole_Assignment> roles)
+        public int Get_DatabaseRoles_for_Database(string database, out List<OGA.MSSQL.Model.DBRole_Assignment> roles)
         {
             System.Data.DataTable dt = null;
             roles = null;
@@ -2270,8 +3225,7 @@ namespace OGA.MSSQL
                                 ON rm.member_principal_id = members.principal_id
                             LEFT JOIN sys.server_principals AS sp
                                 ON members.sid = sp.sid
-                            ORDER BY RoleName, MemberName;
-                            ";
+                            ORDER BY RoleName, MemberName;";
 
             // First, see if the database exists...
             int res = Does_Database_Exist(database);
@@ -2301,7 +3255,7 @@ namespace OGA.MSSQL
                     // Failed to connect to target database.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_DBRoles_for_Database)} - " +
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_DatabaseRoles_for_Database)} - " +
                         "Failed to connect to target database.");
 
                     return -1;
@@ -2350,7 +3304,7 @@ namespace OGA.MSSQL
                     role.LoginName = r["LoginName"] + "";
                     role.Default_Schema_Name = r["default_schema_name"] + "";
                     role.Principal_ID = r["User_PrincipleId"] + "";
-                    role.SID = r["RoleSid"] + "";
+                    role.RoleSID = r["RoleSid"] + "";
 
                     roles.Add(role);
                 }
@@ -2363,6 +3317,115 @@ namespace OGA.MSSQL
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
                     "Exception occurred"
                     , _classname, database);
+
+                return -20;
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
+
+        /// <summary>
+        /// Get a list of all roles for the SQL Host.
+        /// </summary>
+        /// <param name="roles"></param>
+        /// <returns></returns>
+        public int Get_Roles_for_SQLHost(out List<OGA.MSSQL.Model.SQLHostRole_Assignment> roles)
+        {
+            System.Data.DataTable dt = null;
+            roles = null;
+
+            // Compose the query that will pull SQL Host roles.
+            string sql = @"SELECT
+                                roles.name AS ServerRoleName,
+	                            roles.sid AS [RoleSid],
+                                members.principal_id AS LoginPrincipalId,
+                                members.name AS LoginName,
+                                members.type_desc AS LoginType,
+                                roles.type_desc AS RoleType
+                            FROM sys.server_role_members AS rm
+                            JOIN sys.server_principals AS members
+                                ON rm.member_principal_id = members.principal_id
+                            JOIN sys.server_principals AS roles
+                                ON rm.role_principal_id = roles.principal_id
+                            ORDER BY members.name, roles.name;";
+
+            // Now, get the set of host roles...
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "Attempting to get host roles..."
+                        , _classname);
+
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_Roles_for_SQLHost)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "We can connect to the SQL Host."
+                        , _classname);
+
+                if (this._master_dal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get roles for the SQL Host.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to get roles for the SQL Host."
+                            , _classname);
+
+                    return -2;
+                }
+                // We have a datatable of SQL Host roles.
+
+                // See if it contains anything.
+                if (dt.Rows.Count == 0)
+                {
+                    // No SQL Host roles are defined.
+                    // Return an error.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Did not get any SQL Host roles. Something is wrong."
+                            , _classname);
+
+                    return -3;
+                }
+                // If here, we have SQL Host roles.
+
+                roles = new List<OGA.MSSQL.Model.SQLHostRole_Assignment>();
+
+                // Convert each result row to a database role instance.
+                foreach (System.Data.DataRow r in dt.Rows)
+                {
+                    OGA.MSSQL.Model.SQLHostRole_Assignment role = new OGA.MSSQL.Model.SQLHostRole_Assignment();
+
+                    role.GroupName = r["ServerRoleName"] + "";
+                    role.Login = r["LoginName"] + "";
+                    role.Principal_ID = r["LoginPrincipalId"] + "";
+                    role.RoleSID = r["RoleSid"] + "";
+
+                    roles.Add(role);
+                }
+                // If here, we got a list of SQL Host roles.
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred"
+                    , _classname);
 
                 return -20;
             }
@@ -2855,6 +3918,146 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
+        /// Retrieves the list of primary key constraints for the given table.
+        /// NOTE: This command must be executed on a connection with the given database, not to the system database, postgres.
+        /// Returns 1 if found, 0 if not, negatives for errors.
+        /// </summary>
+        /// <param name="database"></param>
+        /// <param name="tableName"></param>
+        /// <param name="pklist"></param>
+        /// <returns></returns>
+        public int Get_PrimaryKeyConstraints_forTable(string database, string tableName, out List<PriKeyConstraint> pklist)
+        {
+            System.Data.DataTable dt = null;
+            pklist = new List<PriKeyConstraint>();
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
+                    $"Attempting to get primary key constraints for table {tableName ?? ""}...");
+
+                if(string.IsNullOrWhiteSpace(database))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
+                        $"Database name is empty.");
+
+                    return -1;
+                }
+                if(string.IsNullOrWhiteSpace(tableName))
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
+                        $"Table name is empty.");
+
+                    return -1;
+                }
+
+                // This action requires a connection to the target database.
+                var dbdal = this.GetDatabaseDAL(database);
+                if(dbdal == null)
+                {
+                    // Failed to connect to target database.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
+                        "Failed to connect to target database.");
+
+                    return -1;
+                }
+
+                // Verify the table exists...
+                var restable = this.Is_Table_in_Database(database, tableName);
+                if(restable != 1)
+                {
+                    // Table doesn't exist.
+
+                    return 0;
+                }
+
+                // Compose the sql query we will perform.
+                string sql = $@"SELECT
+                                    kcu.TABLE_SCHEMA,
+                                    kcu.TABLE_NAME,
+                                    tco.CONSTRAINT_NAME,
+                                    kcu.ORDINAL_POSITION AS POSITION,
+                                    kcu.COLUMN_NAME AS KEY_COLUMN
+                                FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tco
+                                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS kcu
+                                    ON kcu.CONSTRAINT_NAME = tco.CONSTRAINT_NAME
+                                    AND kcu.CONSTRAINT_SCHEMA = tco.CONSTRAINT_SCHEMA
+                                WHERE tco.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                                  AND kcu.TABLE_NAME = '{tableName}'
+                                ORDER BY kcu.TABLE_SCHEMA, kcu.TABLE_NAME, kcu.ORDINAL_POSITION;";
+
+                if (dbdal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get primary keys from the table.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
+                        "Failed to get primary keys from the table.");
+
+                    return -2;
+                }
+                // We have a datatable of primary keys.
+
+                // See if it contains anything.
+                if (dt.Rows.Count == 0)
+                {
+                    // No primary keys in the table.
+                    // Or, the table doesn't exist.
+
+                    return 1;
+                }
+                // If here, we have primary keys for the table.
+
+                // Convert the raw list to our type...
+                foreach (System.Data.DataRow r in dt.Rows)
+                {
+                    var pk = new PriKeyConstraint();
+                    pk.table_schema = r["TABLE_SCHEMA"] + "";
+                    pk.table_name = r["TABLE_NAME"] + "";
+                    pk.constraint_name = r["CONSTRAINT_NAME"] + "";
+                    pk.key_column = r["KEY_COLUMN"] + "";
+
+                    try
+                    {
+                        pk.position = Convert.ToInt32(r["POSITION"]);
+                    }
+                    catch(Exception e)
+                    {
+                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                            $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
+                            $"Exception occurred while converting primary key position for table ({(tableName ?? "")}).");
+
+                        pk.position = -1;
+                    }
+
+                    pklist.Add(pk);
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
+                    "Exception occurred");
+
+                return -20;
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
+
+        /// <summary>
         /// Gets the row count for each table in the database the user connects to.
         /// </summary>
         /// <param name="database"></param>
@@ -3325,6 +4528,141 @@ namespace OGA.MSSQL
 
         #region Private Methods
 
+        /// <summary>
+        /// Requires the given user name to begin with a letter or underscore, and contain letters, numbers, or underscores.
+        /// </summary>
+        /// <param name="val"></param>
+        /// <returns></returns>
+        static public bool UserNameIsValid(string val)
+        {
+            return StringIsAlphaNumberandUnderscore(val);
+        }
+        /// <summary>
+        /// Requires the given column name to begin with a letter or underscore, and contain letters, numbers, or underscores.
+        /// </summary>
+        /// <param name="val"></param>
+        /// <returns></returns>
+        static public bool ColumnNameIsValid(string val)
+        {
+            return StringIsAlphaNumberandUnderscore(val);
+        }
+        /// <summary>
+        /// Requires the given table name to begin with a letter or underscore, and contain letters, numbers, or underscores.
+        /// </summary>
+        /// <param name="val"></param>
+        /// <returns></returns>
+        static public bool TableNameIsValid(string val)
+        {
+            return StringIsAlphaNumberandUnderscore(val);
+        }
+        /// <summary>
+        /// Requires the given database name to begin with a letter or underscore, and contain letters, numbers, or underscores.
+        /// </summary>
+        /// <param name="val"></param>
+        /// <returns></returns>
+        static public bool DatabaseNameIsValid(string val)
+        {
+            return StringIsAlphaNumberandUnderscore(val);
+        }
+
+        /// <summary>
+        /// Checks that the given string begins with a letter or underscore, and contain letters, numbers, or underscores.
+        /// </summary>
+        /// <param name="val"></param>
+        /// <returns></returns>
+        static public bool StringIsAlphaNumberandUnderscore(string val)
+        {
+            if (string.IsNullOrWhiteSpace(val))
+            {
+                return false;
+            }
+
+            Regex regex = new Regex("^[A-Za-z_][A-Za-z0-9_]*$");
+            if (regex.IsMatch(val))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Private method that confirms the connection has SA privileges.
+        /// Returns 1 on success, negatives for errors.
+        /// </summary>
+        /// <param name="dal">DAL reference</param>
+        /// <returns></returns>
+        private (int res, string login, bool isadmin) _Confirm_SAPrivileges(MSSQL_DAL dal)
+        {
+            System.Data.DataTable dt = null;
+
+            try
+            {
+                string sql = @$"SELECT SUSER_NAME() AS CurrentLogin,
+                               IS_SRVROLEMEMBER('sysadmin') AS IsSysAdmin;";
+
+                // Execute the SQL to see what privileges we have...
+                if (dal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to query for privileges.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to query for privileges."
+                            , _classname);
+
+                    return (-2, "", false);
+                }
+
+                // Ensure we got one row...
+                if (dt.Rows.Count != 1)
+                {
+                    // Failed to query for privileges.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to query for privileges."
+                            , _classname);
+
+                    return (-2, "", false);
+                }
+
+                if(MSSQL_DAL.Recover_FieldValue_from_DBRow(dt.Rows[0], "CurrentLogin", out string login) != 1)
+                {
+                    // Failed to query for privileges.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to query for privileges."
+                            , _classname);
+
+                    return (-2, "", false);
+                }
+                if(MSSQL_DAL.Recover_FieldValue_from_DBRow(dt.Rows[0], "IsSysAdmin", out bool isadmin) != 1)
+                {
+                    // Failed to query for privileges.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to query for privileges."
+                            , _classname);
+
+                    return (-2, "", false);
+                }
+
+                return (1, login, isadmin);
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred."
+                    , _classname);
+
+                return (-20, "", false);
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
+
+
         private int priv_AddUsertoDatabase(string username, string database)
         {
             try
@@ -3368,154 +4706,6 @@ namespace OGA.MSSQL
                     , _classname, database);
 
                 return -20;
-            }
-        }
-
-        /// <summary>
-        /// Attempts to enable command shell access on the SQL Engine.
-        /// </summary>
-        /// <returns></returns>
-        private int SQLEngine_EnableCmdShell()
-        {
-            try
-            {
-                // Connect to the database...
-                if (!this.ConnectMasterDAL())
-                {
-                    // Failed to connect to master.
-
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(SQLEngine_DeleteFile)} - " +
-                        $"Failed to connect to server.");
-
-                    return -1;
-                }
-
-                // Enable advanced options...
-                string sql1 = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;";
-                // We have the sql script to run.
-
-                // Execute it on the sql server instance...
-                if (_master_dal.Execute_NonQuery(sql1).res != -1)
-                {
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                    "Error occurred while enabling command shell access on SQL server."
-                        , _classname);
-
-                    return -1;
-                }
-
-                // Enable command shell...
-                string sql2 = "EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
-                // We have the sql script to run.
-
-                // Execute it on the sql server instance...
-                if (_master_dal.Execute_NonQuery(sql2).res != -1)
-                {
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                    "Error occurred while enabling command shell access on SQL server."
-                        , _classname);
-
-                    return -1;
-                }
-
-                return 1;
-            }
-            catch (Exception e)
-            {
-                return -10;
-            }
-        }
-        /// <summary>
-        /// Attempts to disable command shell access on the SQL Engine.
-        /// </summary>
-        /// <returns></returns>
-        private int SQLEngine_DisableCmdShell()
-        {
-            try
-            {
-                // Connect to the database...
-                if (!this.ConnectMasterDAL())
-                {
-                    // Failed to connect to master.
-
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(SQLEngine_DeleteFile)} - " +
-                        $"Failed to connect to server.");
-
-                    return -1;
-                }
-
-                // Disable command shell...
-                string sql2 = "EXEC sp_configure 'xp_cmdshell', 0; RECONFIGURE;";
-                // We have the sql script to run.
-
-                // Execute it on the sql server instance...
-                if (_master_dal.Execute_NonQuery(sql2).res != -1)
-                {
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                    "Error occurred while disabling command shell access on SQL server."
-                        , _classname);
-
-                    return -1;
-                }
-
-                return 1;
-            }
-            catch (Exception e)
-            {
-                return -10;
-            }
-        }
-
-        /// <summary>
-        /// Attempts to delete a file on the SQL Engine host, via its command line access.
-        /// Running this, requires executing SQLEngine_DisableCmdShell(), first.
-        /// </summary>
-        /// <param name="filepath"></param>
-        /// <returns></returns>
-        private int SQLEngine_DeleteFile(string filepath)
-        {
-            try
-            {
-                // Connect to the database...
-                if (!this.ConnectMasterDAL())
-                {
-                    // Failed to connect to master.
-
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(SQLEngine_DeleteFile)} - " +
-                        $"Failed to connect to server.");
-
-                    return -1;
-                }
-
-                // Compose the string to delete the given file...
-                // This composite statement recovers the return value from the command shell execution, as @result.
-                // Then, it passes @result back to us as a scalar query result.
-                string sql = "DECLARE @result INT; " +
-                              "EXEC @result = xp_cmdshell 'DEL \"" + filepath + "\"'; " +
-                              "SELECT @result;";
-                //string sql = "EXEC xp_cmdshell 'DEL \"" + filepath + "\"';";
-                // We have the sql script to run.
-
-                // Execute it on the sql server instance...
-                //int res = _dal.Execute_NonQuery(sql);
-                int res = _master_dal.Execute_Scalar(sql, System.Data.CommandType.Text, out var result);
-                if (res != 0)
-                {
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                    "Error occurred while performing file delete on SQL server."
-                        , _classname);
-
-                    return -1;
-                }
-
-                return 1;
-            }
-            catch (Exception e)
-            {
-                return -10;
             }
         }
 
@@ -3582,31 +4772,45 @@ namespace OGA.MSSQL
             return -1;
         }
 
-        private eDBRoles Recover_DatabaseRole_from_String(string groupName)
+        private eSQLRoles Recover_SQLRoles_from_String(string groupName)
         {
             string tempstr = groupName.ToLower();
 
             // See what the given role is.
-            if (tempstr == eDBRoles.db_accessadmin.ToString())
-                return eDBRoles.db_accessadmin;
-            else if (tempstr == eDBRoles.db_backupoperator.ToString())
-                return eDBRoles.db_backupoperator;
-            else if (tempstr == eDBRoles.db_datareader.ToString())
-                return eDBRoles.db_datareader;
-            else if (tempstr == eDBRoles.db_datawriter.ToString())
-                return eDBRoles.db_datawriter;
-            else if (tempstr == eDBRoles.db_ddladmin.ToString())
-                return eDBRoles.db_ddladmin;
-            else if (tempstr == eDBRoles.db_denydatareader.ToString())
-                return eDBRoles.db_denydatareader;
-            else if (tempstr == eDBRoles.db_denydatawriter.ToString())
-                return eDBRoles.db_denydatawriter;
-            else if (tempstr == eDBRoles.db_owner.ToString())
-                return eDBRoles.db_owner;
-            else if (tempstr == eDBRoles.db_securityadmin.ToString())
-                return eDBRoles.db_securityadmin;
+            if (tempstr == eSQLRoles.db_accessadmin.ToString())
+                return eSQLRoles.db_accessadmin;
+            else if (tempstr == eSQLRoles.db_backupoperator.ToString())
+                return eSQLRoles.db_backupoperator;
+            else if (tempstr == eSQLRoles.db_datareader.ToString())
+                return eSQLRoles.db_datareader;
+            else if (tempstr == eSQLRoles.db_datawriter.ToString())
+                return eSQLRoles.db_datawriter;
+            else if (tempstr == eSQLRoles.db_ddladmin.ToString())
+                return eSQLRoles.db_ddladmin;
+            else if (tempstr == eSQLRoles.db_denydatareader.ToString())
+                return eSQLRoles.db_denydatareader;
+            else if (tempstr == eSQLRoles.db_denydatawriter.ToString())
+                return eSQLRoles.db_denydatawriter;
+            else if (tempstr == eSQLRoles.db_owner.ToString())
+                return eSQLRoles.db_owner;
+            else if (tempstr == eSQLRoles.db_securityadmin.ToString())
+                return eSQLRoles.db_securityadmin;
+            else if (tempstr == eSQLRoles.sysadmin.ToString())
+                return eSQLRoles.sysadmin;
+            else if (tempstr == eSQLRoles.diskadmin.ToString())
+                return eSQLRoles.diskadmin;
+            else if (tempstr == eSQLRoles.bulkadmin.ToString())
+                return eSQLRoles.bulkadmin;
+            else if (tempstr == eSQLRoles.setupadmin.ToString())
+                return eSQLRoles.setupadmin;
+            else if (tempstr == eSQLRoles.processadmin.ToString())
+                return eSQLRoles.processadmin;
+            else if (tempstr == eSQLRoles.serveradmin.ToString())
+                return eSQLRoles.serveradmin;
+            else if (tempstr == eSQLRoles.dbcreator.ToString())
+                return eSQLRoles.dbcreator;
             else
-                return eDBRoles.none;
+                return eSQLRoles.none;
         }
 
         private void Close_MasterDAL()

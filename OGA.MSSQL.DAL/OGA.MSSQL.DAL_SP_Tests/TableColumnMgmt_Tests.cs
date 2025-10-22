@@ -198,25 +198,8 @@ namespace OGA.MSSQL_Tests
                     Assert.Fail("Wrong Value");
 
 
-                // To drop the database, we must dispose out tool instance, to close the target database connection...
-                {
-                    pt.Dispose();
-                    await Task.Delay(500);
-                    pt = Get_ToolInstance_forMaster();
-
-                    // Verify we can access the databaes...
-                    var res2 = pt.TestConnection();
-                    if(res2 != 1)
-                        Assert.Fail("Wrong Value");
-                }
-
-                // Drop connections to the database...
-                var res10 = pt.Set_Database_toSingleUser(dbname);
-                if(res10 != 1)
-                    Assert.Fail("Wrong Value");
-
                 // Delete the database...
-                var res7 = pt.Drop_Database(dbname);
+                var res7 = pt.Drop_Database(dbname, true);
                 if(res7 != 1)
                     Assert.Fail("Wrong Value");
 
@@ -371,25 +354,8 @@ namespace OGA.MSSQL_Tests
                     Assert.Fail("Wrong Value");
 
 
-                // To drop the database, we must dispose out tool instance, to close the target database connection...
-                {
-                    pt.Dispose();
-                    await Task.Delay(500);
-                    pt = Get_ToolInstance_forMaster();
-
-                    // Verify we can access the databaes...
-                    var res2 = pt.TestConnection();
-                    if(res2 != 1)
-                        Assert.Fail("Wrong Value");
-                }
-
-                // Drop connections to the database...
-                var res10 = pt.Set_Database_toSingleUser(dbname);
-                if(res10 != 1)
-                    Assert.Fail("Wrong Value");
-
                 // Delete the database...
-                var res7 = pt.Drop_Database(dbname);
+                var res7 = pt.Drop_Database(dbname, true);
                 if(res7 != 1)
                     Assert.Fail("Wrong Value");
 

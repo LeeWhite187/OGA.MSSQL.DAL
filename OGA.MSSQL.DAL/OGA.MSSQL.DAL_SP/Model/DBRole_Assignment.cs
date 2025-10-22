@@ -45,9 +45,9 @@ namespace OGA.MSSQL.Model
         /// </summary>
         public string Principal_ID;
         /// <summary>
-        /// User SID
+        /// Role SID
         /// From sys.database_principals.sid
         /// </summary>
-        public string SID;
+        public string RoleSID;
     }
 }

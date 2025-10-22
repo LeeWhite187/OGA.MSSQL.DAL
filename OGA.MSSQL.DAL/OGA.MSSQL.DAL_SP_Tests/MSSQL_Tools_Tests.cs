@@ -29,58 +29,31 @@ namespace OGA.MSSQL_Tests
         //  Test_1_2_2  Verify we can change the owner of a database.
         //  Test_1_2_3  Verify that a test user can connect to a test database if he is given ownership of it.
 
+        //  Test_1_3_1  Verify we can get the primary key column data for a table.
+
         //  Test_1_4_1  Verify that we can connect to the test a specific database with a test login that is a user of the database.
         //  Test_1_4_2  Verify that we can connect to the test a specific database with a test login that's not a user of the database.
 
-        //  Test_1_5_1  Verify that we can create a local test user, and are able to change its password.
-
-        //  Test_1_9_1  Verify that we can get the folder path of the data folder.
-        //  Test_1_9_2  Verify that we can get the folder path of the log folder.
-        //  Test_1_9_3  Verify that we can get the folder path of a database.
-
-        //  Test_1_10_1  Verify that we can get a list of tables for a given database.
-
-        //  Test_1_11_1  Verify that we can get a list of databases on the MSSQL host.
-
-
-FINISH TESTS FROM HERE DOWN...
-
-    Move all the user management tests to the UserMgmt_Tests class.
-
-
-        //  Test_1_3_1  Verify we can get the primary key column data for a table.
-     
         //  Test_1_8_1  Verify that we can create a database whose name doesn't already exist.
         //  Test_1_8_2  Verify that we cannot create a database whose name already exists.
         //  Test_1_8_3  Verify that we can verify if a database exists.
         //  Test_1_8_4  Verify that we can delete a database that exists.
         //  Test_1_8_5  Verify that we cannot delete a database with an unknown name.
-        //  Test_1_8_6  Verify that a user without CreateDB is not allowed to create a database.
+        //  Test_1_8_6  Verify that a user without dbcreator is not allowed to create a database.
 
+        //  Test_1_9_1  Verify that we can get the folder path of the data folder.
+        //  Test_1_9_2  Verify that we can get the folder path of the log folder.
+        //  Test_1_9_3  Verify that we can get the folder path of a database.
+        //  Test_1_9_4  Verify we can query for the size of a database.
 
-    ADD test to verify that adding a local user to the sql engine with a bad password gives a specific error.
-    ADD test to verify that adding a local user to the sql engine with a good password gives a specific error.
+        //  Test_1_10_1  Verify that we can get a list of tables for a given database.
 
+        //  Test_1_11_1  Verify that we can get a list of databases on the MSSQL host.
 
-    Add test to verify we can remove a user from a database.
+        //  Test_1_12_1  Verify that we can backup and restore a database.
 
-    Add test to verify we can get the configured db roles for a database.
-    Add test to verify we can query for user privileges to a database.
-    Add test to verify we can set a particular privilege for a user of a database.
-    Add tests to verify the addition and presence, before and after, of each db role for a user in a database.
-
-    Add test to verify that we can add a user to a database, with a specific set of roles.
-    Add test to verify that we can add a user to a database, with no specified roles, and see if this should return an error as result.
-
-    Add test to verify we can set a database to single user mode, and we can confirm the mode it's in.
-    Add test to verify we can set a database to multi user mode, and we can confirm the mode it's in.
-
-    Add test to verify we can backup a database and restore it.
-
-
-    Add test to verify the Does_User_Exist_forDatabase() call works, in both directions Found and not found.
-    And, verify how Does_User_Exist_forDatabase() behaves when the database doesn't exist.
-
+        //  Test_1_13_1  Verify that we can change a database to single user mode, and confirm its mode.
+        //  Test_1_13_2  Verify that we can change a database to multi user mode, and confirm its mode.
 
      */
 
@@ -356,7 +329,7 @@ FINISH TESTS FROM HERE DOWN...
                 // Delete the test database...
                 {
                     // Delete the database...
-                    var res4 = ptadmin.Drop_Database(dbname);
+                    var res4 = ptadmin.Drop_Database(dbname, true);
                     if(res4 != 1)
                         Assert.Fail("Wrong Value");
 
@@ -550,25 +523,9 @@ FINISH TESTS FROM HERE DOWN...
                         Assert.Fail("Wrong Value");
                 }
 
-                // Wait a tick, to let things catch up...
-                await Task.Delay(500);
-
-                // Verify that the user can connect to the test database...
-                {
-                    var pt1 = new MSSQL_Tools();
-                    pt1.HostName = dbcreds.Host;
-                    pt1.Service = dbcreds.Service;
-                    pt1.Username = mortaluser1;
-                    pt1.Password = mortaluser1_password;
-                    var restest = pt1.TestConnection_toDatabase(dbname);
-                    if(restest != 1)
-                        Assert.Fail("Wrong Value");
-                    pt1.Dispose();
-                    await Task.Delay(500);
-                }
 
                 // Delete the database...
-                var res4 = pt.Drop_Database(dbname);
+                var res4 = pt.Drop_Database(dbname, true);
                 if(res4 != 1)
                     Assert.Fail("Wrong Value");
 
@@ -588,6 +545,86 @@ FINISH TESTS FROM HERE DOWN...
             }
         }
 
+
+        //  Test_1_3_1  Verify we can get the primary key column data for a table.
+        [TestMethod]
+        public async Task Test_1_3_1()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = this.Get_ToolInstance_forMaster();
+
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Create the test database...
+                var res2 = pt.Create_Database(dbname);
+                if(res2 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database now exists...
+                var res3 = pt.Does_Database_Exist(dbname);
+                if(res3 != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Create a test table in our test database that has a primary key...
+                string tblname = this.GenerateTableName();
+                {
+                    // Create the table definition...
+                    var tch = new TableDefinition(tblname);
+                    tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                    tch.Add_String_Column("IconName", 50, false);
+
+                    // Make the call to create the table...
+                    var res6 = pt.Create_Table(dbname, tch);
+                    if(res6 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Confirm the table was created...
+                    var res7 = pt.DoesTableExist(dbname, tblname);
+                    if(res7 != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+                // Query for the primary keys of the table...
+                var respk = pt.Get_PrimaryKeyConstraints_forTable(dbname, tblname, out var pklist);
+                if(respk != 1 || pklist == null)
+                    Assert.Fail("Wrong Value");
+
+                // Verify we found the primary key we created...
+                if(pklist.Count != 1)
+                    Assert.Fail("Wrong Value");
+                var pkc = pklist.FirstOrDefault(n => n.key_column == "Id");
+                if(pkc == null)
+                    Assert.Fail("Wrong Value");
+                if(pkc.table_name != tblname)
+                    Assert.Fail("Wrong Value");
+
+
+                // Delete the database...
+                var res8 = pt.Drop_Database(dbname, true);
+                if(res8 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res9 = pt.Does_Database_Exist(dbname);
+                if(res9 != 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+        
+        
         //  Test_1_4_1  Verify that we can connect to the test a specific database with a test login that is a user of the database.
         [TestMethod]
         public async Task Test_1_4_1()
@@ -635,17 +672,8 @@ FINISH TESTS FROM HERE DOWN...
                 }
 
 
-                // Before we attempt to delete the database, we need to realize that our tool instance has a specific connection to the test database.
-                // This is because the Add_User_to_Database connects to the database during its work.
-                // So, we need to dispose and create a new instance...
-                pt.Dispose();
-                await Task.Delay(500);
-                pt = Get_ToolInstance_forMaster();
-                pt.Cfg_ClearConnectionPoolOnClose = true;
-
-
                 // Delete the database...
-                var res4 = pt.Drop_Database(dbname);
+                var res4 = pt.Drop_Database(dbname, true);
                 if(res4 != 1)
                     Assert.Fail("Wrong Value");
 
@@ -703,7 +731,7 @@ FINISH TESTS FROM HERE DOWN...
 
 
                 // Delete the database...
-                var res4 = pt.Drop_Database(dbname);
+                var res4 = pt.Drop_Database(dbname, true);
                 if(res4 != 1)
                     Assert.Fail("Wrong Value");
 
@@ -723,80 +751,272 @@ FINISH TESTS FROM HERE DOWN...
             }
         }
 
-        //  Test_1_5_1  Verify that we can create a local test user, and are able to change its password.
+
+        //  Test_1_8_1  Verify that we can create a database whose name doesn't already exist.
         [TestMethod]
-        public async Task Test_1_5_1()
+        public async Task Test_1_8_1()
         {
-            MSSQL_Tools ptadmin = null;
-            MSSQL_Tools usertool = null;
+            MSSQL_Tools pt = null;
 
             try
             {
-                // Create the tools instance...
-                ptadmin = Get_ToolInstance_forMaster();
-                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+                pt = Get_ToolInstance_forMaster();
+
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Create the test database...
+                var res2 = pt.Create_Database(dbname);
+                if(res2 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database now exists...
+                var res3 = pt.Does_Database_Exist(dbname);
+                if(res3 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname);
+                if(res4 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res5 = pt.Does_Database_Exist(dbname);
+                if(res5 != 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+        
+        //  Test_1_8_2  Verify that we cannot create a database whose name already exists.
+        [TestMethod]
+        public async Task Test_1_8_2()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = Get_ToolInstance_forMaster();
+
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Create the test database...
+                var res2 = pt.Create_Database(dbname);
+                if(res2 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database now exists...
+                var res3 = pt.Does_Database_Exist(dbname);
+                if(res3 != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Attempt to create the database again...
+                var res2a = pt.Create_Database(dbname);
+                if(res2a != -2)
+                    Assert.Fail("Wrong Value");
+
+
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname);
+                if(res4 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res5 = pt.Does_Database_Exist(dbname);
+                if(res5 != 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+        //  Test_1_8_3  Verify that we can verify if a database exists.
+        [TestMethod]
+        public async Task Test_1_8_3()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = Get_ToolInstance_forMaster();
+
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Create the test database...
+                var res2 = pt.Create_Database(dbname);
+                if(res2 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database now exists...
+                var res3 = pt.Does_Database_Exist(dbname);
+                if(res3 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname);
+                if(res4 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res5 = pt.Does_Database_Exist(dbname);
+                if(res5 != 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+        //  Test_1_8_4  Verify that we can delete a database that exists.
+        [TestMethod]
+        public async Task Test_1_8_4()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = Get_ToolInstance_forMaster();
+
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Create the test database...
+                var res2 = pt.Create_Database(dbname);
+                if(res2 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database now exists...
+                var res3 = pt.Does_Database_Exist(dbname);
+                if(res3 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname);
+                if(res4 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res5 = pt.Does_Database_Exist(dbname);
+                if(res5 != 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+        //  Test_1_8_5  Verify that we cannot delete a database with an unknown name.
+        [TestMethod]
+        public async Task Test_1_8_5()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = Get_ToolInstance_forMaster();
+
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname);
+                if(res4 != 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+        //  Test_1_8_6  Verify that a user without dbcreator is not allowed to create a database.
+        [TestMethod]
+        public async Task Test_1_8_6()
+        {
+            MSSQL_Tools pt = null;
+            MSSQL_Tools ptuser = null;
+
+            try
+            {
+                pt = Get_ToolInstance_forMaster();
 
 
                 // Create a test user...
                 string mortaluser1 = this.GenerateTestUser();
                 string mortaluser1_password = this.GenerateUserPassword();
-                {
-                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
-                    if(resa != 1)
-                        Assert.Fail("Wrong Value");
-                }
-
-
-                // Create a tool instance for the test user...
-                usertool = new MSSQL_Tools();
-                usertool.HostName = dbcreds.Host;
-                usertool.Service = dbcreds.Service;
-                usertool.Username = mortaluser1;
-                usertool.Password = mortaluser1_password;
-
-
-                // Verify the user can connect to the SQL host...
-                var resconntest = usertool.TestConnection();
-                    if(resconntest != 1)
-                            Assert.Fail("Wrong Value");
-
-
-                // Change the user's password...
-                string mortaluser1_passwordnew = this.GenerateUserPassword();
-                var reschg = ptadmin.ChangeLoginPassword(mortaluser1, mortaluser1_passwordnew);
-                if(reschg != 1)
+                var resa = pt.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                if(resa != 1)
                     Assert.Fail("Wrong Value");
 
 
-                // Recycle the test user's tool instance...
-                usertool.Dispose();
-                usertool = new MSSQL_Tools();
-                usertool.HostName = dbcreds.Host;
-                usertool.Service = dbcreds.Service;
-                usertool.Username = mortaluser1;
-                usertool.Password = mortaluser1_passwordnew;
+                // Create the test database name...
+                string dbname = this.GenerateDatabaseName();
 
 
-                // Verify the user can connect to the SQL host with the new password...
-                var resconntest2 = usertool.TestConnection();
-                if(resconntest2 != 1)
+                // Have test user 1 attempt to create the test database...
+                {
+                    // Open a connection as test user 1...
+                    ptuser = new MSSQL_Tools();
+                    ptuser.HostName = dbcreds.Host;
+                    ptuser.Service = dbcreds.Service;
+                    ptuser.Username = mortaluser1;
+                    ptuser.Password = mortaluser1_password;
+
+                    // Attempt to create the test database...
+                    var res1a = ptuser.Create_Database(dbname);
+                    if(res1a != -4)
                         Assert.Fail("Wrong Value");
 
-                // Dispose the user's tool instance...
-                usertool.Dispose();
+                    ptuser.Dispose();
+                }
 
-                // Remove the user...
-                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
-                if(resdeluser != 1)
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname);
+                if(res4 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res5 = pt.Does_Database_Exist(dbname);
+                if(res5 != 0)
                     Assert.Fail("Wrong Value");
             }
             finally
             {
-                ptadmin?.Dispose();
-                usertool?.Dispose();
+                pt?.Dispose();
+                ptuser?.Dispose();
             }
         }
-
+        
 
         //  Test_1_9_1  Verify that we can get the folder path of the data folder.
         [TestMethod]
@@ -910,7 +1130,61 @@ FINISH TESTS FROM HERE DOWN...
                 // Delete the test database...
                 {
                     // Delete the database...
-                    var res4 = pt.Drop_Database(dbname);
+                    var res4 = pt.Drop_Database(dbname, true);
+                    if(res4 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Check that the database is no longer present...
+                    var res5 = pt.Does_Database_Exist(dbname);
+                    if(res5 != 0)
+                        Assert.Fail("Wrong Value");
+                }
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+        //  Test_1_9_4  Verify we can query for the size of a database.
+        [TestMethod]
+        public async Task Test_1_9_4()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = this.Get_ToolInstance_forMaster();
+
+
+                // Create a test database...
+                string dbname = this.GenerateDatabaseName();
+                {
+                    // Create the test database...
+                    var res2 = pt.Create_Database(dbname);
+                    if(res2 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Check that the database now exists...
+                    var res3 = pt.Does_Database_Exist(dbname);
+                    if(res3 != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Get the size of the database...
+                var res = pt.Get_DatabaseSize(dbname);
+                if (res.res != 1)
+                    Assert.Fail("Wrong Value");
+
+                if(res.size < 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Delete the test database...
+                {
+                    // Delete the database...
+                    var res4 = pt.Drop_Database(dbname, true);
                     if(res4 != 1)
                         Assert.Fail("Wrong Value");
 
@@ -951,7 +1225,7 @@ FINISH TESTS FROM HERE DOWN...
         }
 
 
-        //  Test_1_11_1  Verify that we can get a list of databases on the PostgreSQL host.
+        //  Test_1_11_1  Verify that we can get a list of databases on the MSSQL host.
         [TestMethod]
         public async Task Test_1_11_1()
         {
@@ -977,378 +1251,266 @@ FINISH TESTS FROM HERE DOWN...
         }
 
 
+        //  Test_1_12_1  Verify that we can backup and restore a database.
+        [TestMethod]
+        public async Task Test_1_12_1()
+        {
+            MSSQL_Tools pt = null;
 
-        /*
+            try
+            {
+                pt = this.Get_ToolInstance_forMaster();
 
-                //  Test_1_3_1  Verify we can get the primary key column data for a table.
-                [TestMethod]
-                public async Task Test_1_3_1()
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Create the test database...
+                var res2 = pt.Create_Database(dbname);
+                if(res2 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database now exists...
+                var res3 = pt.Does_Database_Exist(dbname);
+                if(res3 != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Create a test table in our test database that has a primary key...
+                string tblname = this.GenerateTableName();
                 {
-                    MSSQL_Tools pt = null;
+                    // Create the table definition...
+                    var tch = new TableDefinition(tblname);
+                    tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                    tch.Add_String_Column("IconName", 50, false);
 
-                    try
-                    {
-                        pt = Get_ToolInstance_forDatabase(dbcreds.Database);
+                    // Make the call to create the table...
+                    var res6 = pt.Create_Table(dbname, tch);
+                    if(res6 != 1)
+                        Assert.Fail("Wrong Value");
 
-                        string dbname = this.GenerateDatabaseName();
-
-                        // Check that the database doesn't exist...
-                        var res1 = pt.Is_Database_Present(dbname);
-                        if(res1 != 0)
-                            Assert.Fail("Wrong Value");
-
-                        // Create the test database...
-                        var res2 = pt.Create_Database(dbname);
-                        if(res2 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database now exists...
-                        var res3 = pt.Is_Database_Present(dbname);
-                        if(res3 != 1)
-                            Assert.Fail("Wrong Value");
-
-
-                        // Create a test table in our test database that has a primary key...
-                        string tblname = this.GenerateTableName();
-                        {
-                            // Swap our connection to the created database...
-                            pt.Dispose();
-                            await Task.Delay(500);
-                            pt = Get_ToolInstance_forDatabase(dbname);
-
-                            // Verify we can access the new database...
-                            var res5 = pt.TestConnection();
-                            if(res5 != 1)
-                                Assert.Fail("Wrong Value");
-
-                            // Create the table definition...
-                            var tch = new TableDefinition(tblname, pt.Username);
-                            tch.Add_Pk_Column("Id", Postgres.DAL.Model.ePkColTypes.integer);
-                            tch.Add_String_Column("IconName", 50, false);
-
-                            // Make the call to create the table...
-                            var res6 = pt.Create_Table(tch);
-                            if(res6 != 1)
-                                Assert.Fail("Wrong Value");
-
-                            // Confirm the table was created...
-                            var res7 = pt.DoesTableExist(tblname);
-                            if(res7 != 1)
-                                Assert.Fail("Wrong Value");
-                        }
-
-                        // Query for the primary keys of the table...
-                        var respk = pt.Get_PrimaryKeyConstraints_forTable(tblname, out var pklist);
-                        if(respk != 1 || pklist == null)
-                            Assert.Fail("Wrong Value");
-
-                        // Verify we found the primary key we created...
-                        if(pklist.Count != 1)
-                            Assert.Fail("Wrong Value");
-                        var pkc = pklist.FirstOrDefault(n => n.key_column == "Id");
-                        if(pkc == null)
-                            Assert.Fail("Wrong Value");
-                        if(pkc.table_name != tblname)
-                            Assert.Fail("Wrong Value");
-
-
-                        // To drop the database, we must switch back to the postgres database...
-                        {
-                            // Swap our connection back to the catalog...
-                            pt.Dispose();
-                            await Task.Delay(500);
-                            pt = new MSSQL_Tools();
-                            pt.Hostname = dbcreds.Host;
-                            pt.Database = dbcreds.Database;
-                            pt.Username = dbcreds.User;
-                            pt.Password = dbcreds.Password;
-
-                            // Verify we can access the postgres database...
-                            var res6a = pt.TestConnection();
-                            if(res6a != 1)
-                                Assert.Fail("Wrong Value");
-                        }
-
-                        // Delete the database...
-                        var res8 = pt.Drop_Database(dbname, true);
-                        if(res8 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database is no longer present...
-                        var res9 = pt.Is_Database_Present(dbname);
-                        if(res9 != 0)
-                            Assert.Fail("Wrong Value");
-                    }
-                    finally
-                    {
-                        pt?.Dispose();
-                    }
+                    // Confirm the table was created...
+                    var res7 = pt.DoesTableExist(dbname, tblname);
+                    if(res7 != 1)
+                        Assert.Fail("Wrong Value");
                 }
 
 
-                //  Test_1_8_1  Verify that we can create a database whose name doesn't already exist.
-                [TestMethod]
-                public async Task Test_1_8_1()
+                // Compose a backup file path...
+                string folderpath = @"E:\\SQLBackup";
+                string filename = Guid.NewGuid().ToString() + ".bak";
+                string filepath = System.IO.Path.Combine(folderpath, filename);
+
+
+                // Generate a backup of the database...
+                var resbk = pt.Backup_Database(dbname, filepath);
+                if(resbk != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Verify the backup file exists...
                 {
-                    MSSQL_Tools pt = null;
+                    // First, enable shell commands on the host...
+                    var resenb = pt.SQLEngine_EnableCmdShell();
+                    if(resenb != 1)
+                        Assert.Fail("Wrong Value");
 
-                    try
-                    {
-                        pt = Get_ToolInstance_forDatabase(dbcreds.Database);
-
-                        string dbname = this.GenerateDatabaseName();
-
-                        // Check that the database doesn't exist...
-                        var res1 = pt.Is_Database_Present(dbname);
-                        if(res1 != 0)
-                            Assert.Fail("Wrong Value");
-
-                        // Create the test database...
-                        var res2 = pt.Create_Database(dbname);
-                        if(res2 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database now exists...
-                        var res3 = pt.Is_Database_Present(dbname);
-                        if(res3 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Delete the database...
-                        var res4 = pt.Drop_Database(dbname);
-                        if(res4 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database is no longer present...
-                        var res5 = pt.Is_Database_Present(dbname);
-                        if(res5 != 0)
-                            Assert.Fail("Wrong Value");
-                    }
-                    finally
-                    {
-                        pt?.Dispose();
-                    }
+                    // Now, get the file's existence...
+                    var resexists = pt.SQLEngine_DoesFileExist(filepath);
+                    if(resenb != 1)
+                        Assert.Fail("Wrong Value");
                 }
 
-                //  Test_1_8_2  Verify that we cannot create a database whose name already exists.
-                [TestMethod]
-                public async Task Test_1_8_2()
+
+                // Delete the database...
+                var res8 = pt.Drop_Database(dbname, true);
+                if(res8 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res9 = pt.Does_Database_Exist(dbname);
+                if(res9 != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Restore the database from the backup file...
+                var resstore = pt.Restore_Database(dbname, filepath);
+                if(resstore != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is present...
+                var res10 = pt.Does_Database_Exist(dbname);
+                if(res10 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Finally, clean up...
                 {
-                    MSSQL_Tools pt = null;
+                    // Delete the database...
+                    var resa = pt.Drop_Database(dbname, true);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
 
-                    try
-                    {
-                        pt = Get_ToolInstance_forDatabase(dbcreds.Database);
-
-                        string dbname = this.GenerateDatabaseName();
-
-                        // Check that the database doesn't exist...
-                        var res1 = pt.Is_Database_Present(dbname);
-                        if(res1 != 0)
-                            Assert.Fail("Wrong Value");
-
-                        // Create the test database...
-                        var res2 = pt.Create_Database(dbname);
-                        if(res2 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database now exists...
-                        var res3 = pt.Is_Database_Present(dbname);
-                        if(res3 != 1)
-                            Assert.Fail("Wrong Value");
-
-
-                        // Attempt to create the database again...
-                        var res2a = pt.Create_Database(dbname);
-                        if(res2a != -2)
-                            Assert.Fail("Wrong Value");
-
-
-                        // Delete the database...
-                        var res4 = pt.Drop_Database(dbname);
-                        if(res4 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database is no longer present...
-                        var res5 = pt.Is_Database_Present(dbname);
-                        if(res5 != 0)
-                            Assert.Fail("Wrong Value");
-                    }
-                    finally
-                    {
-                        pt?.Dispose();
-                    }
+                    // Check that the database is no longer present...
+                    var resb = pt.Does_Database_Exist(dbname);
+                    if(resb != 0)
+                        Assert.Fail("Wrong Value");
                 }
 
-                //  Test_1_8_3  Verify that we can verify if a database exists.
-                [TestMethod]
-                public async Task Test_1_8_3()
+
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+
+        //  Test_1_13_1  Verify that we can change a database to single user mode, and confirm its mode.
+        [TestMethod]
+        public async Task Test_1_13_1()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = this.Get_ToolInstance_forMaster();
+
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Create the test database...
+                var res2 = pt.Create_Database(dbname);
+                if(res2 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database now exists...
+                var res3 = pt.Does_Database_Exist(dbname);
+                if(res3 != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Get the database's current access mode...
+                var res4 = pt.Get_Database_AccessMode(dbname);
+                if(res4.res != 1 || res4.accessmode == MSSQL.DAL.CreateVerify.Model.eAccessMode.Unknown)
+                    Assert.Fail("Wrong Value");
+                // Confirm it's in multi user mode...
+                if(res4.accessmode != MSSQL.DAL.CreateVerify.Model.eAccessMode.MultiUser)
+                    Assert.Fail("Wrong Value");
+
+
+                // Change it to single user...
+                var res5 = pt.Set_Database_toSingleUser(dbname);
+                if(res5 != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Confirm it's in single user mode...
+                var res6 = pt.Get_Database_AccessMode(dbname);
+                if(res6.res != 1 || res6.accessmode == MSSQL.DAL.CreateVerify.Model.eAccessMode.Unknown)
+                    Assert.Fail("Wrong Value");
+                if(res6.accessmode != MSSQL.DAL.CreateVerify.Model.eAccessMode.SingleUser)
+                    Assert.Fail("Wrong Value");
+
+
+                // Finally, clean up...
                 {
-                    MSSQL_Tools pt = null;
+                    // Delete the database...
+                    var resa = pt.Drop_Database(dbname, true);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
 
-                    try
-                    {
-                        pt = Get_ToolInstance_forDatabase(dbcreds.Database);
-
-                        string dbname = this.GenerateDatabaseName();
-
-                        // Check that the database doesn't exist...
-                        var res1 = pt.Is_Database_Present(dbname);
-                        if(res1 != 0)
-                            Assert.Fail("Wrong Value");
-
-                        // Create the test database...
-                        var res2 = pt.Create_Database(dbname);
-                        if(res2 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database now exists...
-                        var res3 = pt.Is_Database_Present(dbname);
-                        if(res3 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Delete the database...
-                        var res4 = pt.Drop_Database(dbname);
-                        if(res4 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database is no longer present...
-                        var res5 = pt.Is_Database_Present(dbname);
-                        if(res5 != 0)
-                            Assert.Fail("Wrong Value");
-                    }
-                    finally
-                    {
-                        pt?.Dispose();
-                    }
+                    // Check that the database is no longer present...
+                    var resb = pt.Does_Database_Exist(dbname);
+                    if(resb != 0)
+                        Assert.Fail("Wrong Value");
                 }
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
 
-                //  Test_1_8_4  Verify that we can delete a database that exists.
-                [TestMethod]
-                public async Task Test_1_8_4()
+        //  Test_1_13_2  Verify that we can change a database to multi user mode, and confirm its mode.
+        [TestMethod]
+        public async Task Test_1_13_2()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = this.Get_ToolInstance_forMaster();
+
+                string dbname = this.GenerateDatabaseName();
+
+                // Check that the database doesn't exist...
+                var res1 = pt.Does_Database_Exist(dbname);
+                if(res1 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Create the test database...
+                var res2 = pt.Create_Database(dbname);
+                if(res2 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database now exists...
+                var res3 = pt.Does_Database_Exist(dbname);
+                if(res3 != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Change the database to single user...
+                var res5 = pt.Set_Database_toSingleUser(dbname);
+                if(res5 != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Confirm it's in single user mode...
+                var res6 = pt.Get_Database_AccessMode(dbname);
+                if(res6.res != 1 || res6.accessmode == MSSQL.DAL.CreateVerify.Model.eAccessMode.Unknown)
+                    Assert.Fail("Wrong Value");
+                if(res6.accessmode != MSSQL.DAL.CreateVerify.Model.eAccessMode.SingleUser)
+                    Assert.Fail("Wrong Value");
+
+
+                // Change the database back to multi user...
+                var res7 = pt.Set_Database_toMultiUser(dbname);
+                if(res7 != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Confirm it's in multi user mode...
+                var res8 = pt.Get_Database_AccessMode(dbname);
+                if(res8.res != 1 || res8.accessmode == MSSQL.DAL.CreateVerify.Model.eAccessMode.Unknown)
+                    Assert.Fail("Wrong Value");
+                if(res8.accessmode != MSSQL.DAL.CreateVerify.Model.eAccessMode.MultiUser)
+                    Assert.Fail("Wrong Value");
+
+                // Finally, clean up...
                 {
-                    MSSQL_Tools pt = null;
+                    // Delete the database...
+                    var resa = pt.Drop_Database(dbname, true);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
 
-                    try
-                    {
-                        pt = Get_ToolInstance_forDatabase(dbcreds.Database);
-
-                        string dbname = this.GenerateDatabaseName();
-
-                        // Check that the database doesn't exist...
-                        var res1 = pt.Is_Database_Present(dbname);
-                        if(res1 != 0)
-                            Assert.Fail("Wrong Value");
-
-                        // Create the test database...
-                        var res2 = pt.Create_Database(dbname);
-                        if(res2 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database now exists...
-                        var res3 = pt.Is_Database_Present(dbname);
-                        if(res3 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Delete the database...
-                        var res4 = pt.Drop_Database(dbname);
-                        if(res4 != 1)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database is no longer present...
-                        var res5 = pt.Is_Database_Present(dbname);
-                        if(res5 != 0)
-                            Assert.Fail("Wrong Value");
-                    }
-                    finally
-                    {
-                        pt?.Dispose();
-                    }
+                    // Check that the database is no longer present...
+                    var resb = pt.Does_Database_Exist(dbname);
+                    if(resb != 0)
+                        Assert.Fail("Wrong Value");
                 }
-
-                //  Test_1_8_5  Verify that we cannot delete a database with an unknown name.
-                [TestMethod]
-                public async Task Test_1_8_5()
-                {
-                    MSSQL_Tools pt = null;
-
-                    try
-                    {
-                        pt = Get_ToolInstance_forDatabase(dbcreds.Database);
-
-                        string dbname = this.GenerateDatabaseName();
-
-                        // Check that the database doesn't exist...
-                        var res1 = pt.Is_Database_Present(dbname);
-                        if(res1 != 0)
-                            Assert.Fail("Wrong Value");
-
-                        // Delete the database...
-                        var res4 = pt.Drop_Database(dbname);
-                        if(res4 != 0)
-                            Assert.Fail("Wrong Value");
-                    }
-                    finally
-                    {
-                        pt?.Dispose();
-                    }
-                }
-
-                //  Test_1_8_6  Verify that a user without CreateDB is not allowed to create a database.
-                [TestMethod]
-                public async Task Test_1_8_6()
-                {
-                    MSSQL_Tools pt = null;
-
-                    try
-                    {
-                        pt = Get_ToolInstance_forDatabase(dbcreds.Database);
-
-
-                        // Create a test user...
-                        string mortaluser1 = this.GenerateTestUser();
-                        string mortaluser1_password = this.GenerateUserPassword();
-                        var resa = pt.CreateUser(mortaluser1, mortaluser1_password);
-                        if(resa != 1)
-                            Assert.Fail("Wrong Value");
-
-
-                        // Create the test database name...
-                        string dbname = this.GenerateDatabaseName();
-
-
-                        // Have test user 1 attempt to create the test database...
-                        {
-                            // Open a connection as test user 1...
-                            var pt1 = new Postgres_Tools();
-                            pt1.Hostname = dbcreds.Host;
-                            pt1.Database = dbcreds.Database;
-                            pt1.Username = mortaluser1;
-                            pt1.Password = mortaluser1_password;
-
-                            // Attempt to create the test database...
-                            var res1a = pt1.Create_Database(dbname);
-                            if(res1a != -4)
-                                Assert.Fail("Wrong Value");
-
-                            pt1.Dispose();
-                        }
-
-                        // Delete the database...
-                        var res4 = pt.Drop_Database(dbname);
-                        if(res4 != 0)
-                            Assert.Fail("Wrong Value");
-
-                        // Check that the database is no longer present...
-                        var res5 = pt.Is_Database_Present(dbname);
-                        if(res5 != 0)
-                            Assert.Fail("Wrong Value");
-                    }
-                    finally
-                    {
-                        pt?.Dispose();
-                    }
-                }
-        */
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
 
         #region Protected Methods
 

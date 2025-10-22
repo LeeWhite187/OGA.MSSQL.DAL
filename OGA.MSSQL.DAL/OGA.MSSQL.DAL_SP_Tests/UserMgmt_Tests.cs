@@ -9,42 +9,91 @@ using System.Web;
 using OGA.Common.Config.structs;
 using OGA.MSSQL.DAL;
 using System.Threading.Tasks;
+using OGA.MSSQL.DAL_SP_Tests.Helpers;
+using System.Linq;
 
 namespace OGA.MSSQL_Tests
 {
     /*  Unit Tests for SQL Server Tools class.
         This set of tests exercise the user management methods.
 
-        //  Test_1_1_1  Verify that we can query for a list of users.
+        //  Test_1_1_1  Verify that we can query for a list of logins of a SQL Host.
+        //  Test_1_1_2  Verify that we can query for a list of users of a database.
 
         //  Test_1_2_1  Verify username validator limits to letters, numbers, and underscores.
-     
-        //  Test_1_3_1  Verify that we can add and delete a user.
-        //  Test_1_3_2  Verify that no error results from deleting a nonexistant user.
-        //  Test_1_3_3  Verify that a nonsuperuser cannot add and delete a user.
 
-        //  Test_1_4_1  Verify that we can change a test user's password.
-        //  Test_1_4_2  Verify that a non superuser cannot change a test user's password.
+        //  Test_1_3_1  Verify that we can add and delete a SQL Host login.
+        //  Test_1_3_2  Verify that no error results from deleting a nonexistant SQL Host login.
+        //  Test_1_3_3  Verify that we can add and delete a database user.
+        //  Test_1_3_4  Verify that no error results from deleting a nonexistant database user.
+        //  Test_1_3_5  Verify that we get a specific error when adding a local login with a password that doesn't meet complexity requirements.
+
+        //  Test_1_4_1  Verify that we can change the password of a local login account.
+        //  Test_1_4_2  Verify that we get a specific error when changing the password of a local login to a password that doesn't meet complexity requirements.
         //  Test_1_4_3  Verify that a non superuser can change their own password.
+        //              NOTE: This test is not possible, since SQL Server doesn't allow logins to change their own password, unless granted ALTER LOGIN or having the systemadmin role.
 
-        //  Test_1_5_1  Verify that we can check a superuser is actually a superuser.
-        //  Test_1_5_2  Verify that we can check a non superuser is not a superuser.
-        //  Test_1_5_3  Verify that we can promote a user to superuser.
-        //  Test_1_5_4  Verify that we can demote a user from superuser to regular user.
+        //  Test_2_1_1  Verify that we can check a sysadmin user is actually a sysadmin.
+        //  Test_2_1_2  Verify that we can check a non sysadmin is not a sysadmin.
+        //  Test_2_1_3  Verify that we can promote a user to sysadmin.
+        //  Test_2_1_4  Verify that we can demote a user from sysadmin to regular user.
 
-        //  Test_1_6_1  Verify that we can check a user has CreateDB.
-        //  Test_1_6_2  Verify that we can check a user does not have CreateDB.
-        //  Test_1_6_3  Verify that we can grant CreateDB to a user.
-        //  Test_1_6_4  Verify that we can deny CreateDB to a user.
-     
-        //  Test_1_7_1  Verify that we can check a user has CreateRole.
-        //  Test_1_7_2  Verify that we can check a user does not have CreateRole.
-        //  Test_1_7_3  Verify that we can grant CreateRole to a user.
-        //  Test_1_7_4  Verify that we can deny CreateRole to a user.
+        //  Test_2_2_1  Verify that we can check a diskadmin user has diskadmin.
+        //  Test_2_2_2  Verify that we can check a non-admin user does not have diskadmin.
+        //  Test_2_2_3  Verify that we can grant diskadmin to a user.
+        //  Test_2_2_4  Verify that we can deny diskadmin to a user.
+    
+        //  Test_2_3_1  Verify that we can check a bulkadmin user has bulkadmin.
+        //  Test_2_3_2  Verify that we can check a non-admin user does not have bulkadmin.
+        //  Test_2_3_3  Verify that we can grant bulkadmin to a user.
+        //  Test_2_3_4  Verify that we can deny bulkadmin to a user.
+
+        //  Test_2_4_1  Verify that we can check a setupadmin user has setupadmin.
+        //  Test_2_4_2  Verify that we can check a non-admin user does not have setupadmin.
+        //  Test_2_4_3  Verify that we can grant setupadmin to a user.
+        //  Test_2_4_4  Verify that we can deny setupadmin to a user.
+
+        //  Test_2_5_1  Verify that we can check a processadmin user has processadmin.
+        //  Test_2_5_2  Verify that we can check a non-admin user does not have processadmin.
+        //  Test_2_5_3  Verify that we can grant processadmin to a user.
+        //  Test_2_5_4  Verify that we can deny processadmin to a user.
+
+        //  Test_2_6_1  Verify that we can check a serveradmin user has serveradmin.
+        //  Test_2_6_2  Verify that we can check a non-admin user does not have serveradmin.
+        //  Test_2_6_3  Verify that we can grant serveradmin to a user.
+        //  Test_2_6_4  Verify that we can deny serveradmin to a user.
+
+        //  Test_2_7_1  Verify that we can check a dbcreator user has dbcreator.
+        //  Test_2_7_2  Verify that we can check a non-admin user does not have dbcreator.
+        //  Test_2_7_3  Verify that we can grant dbcreator to a user.
+        //  Test_2_7_4  Verify that we can deny dbcreator to a user.
+
+
+FINISH TESTS FROM HERE DOWN...
+
+    Add tests to confirm that we can add all server roles with Set_Login_Roles().
+    Add tests to confirm that we can remove all server roles with Set_Login_Roles().
 
 
         Add tests to exercise managing users in a specific database, since SQL Server has users at the engine level and database level.
 
+
+    Move all the user management tests to the UserMgmt_Tests class:
+
+    Add test to verify we can get the configured db roles for a database.
+    Add test to verify we can query for user privileges to a database.
+    Add test to verify we can set a particular privilege for a user of a database.
+    Add tests to verify the addition and presence, before and after, of each db role for a user in a database.
+
+    Add test to verify that we can add a user to a database, with a specific set of roles.
+    Add test to verify that we can add a user to a database, with no specified roles, and see if this should return an error as result.
+
+    Add test to verify the Does_User_Exist_forDatabase() call works, in both directions Found and not found.
+    And, verify how Does_User_Exist_forDatabase() behaves when the database doesn't exist.
+
+
+     
+     
      */
 
     [TestCategory(Test_Types.Unit_Tests)]
@@ -107,47 +156,43 @@ namespace OGA.MSSQL_Tests
         #endregion
 
         
-        //  Test_1_1_1  Verify that we can query for a list of users.
+        //  Test_1_1_1  Verify that we can query for a list of logins of a SQL Host.
         [TestMethod]
         public async Task Test_1_1_1()
         {
-            Postgres_Tools pt = null;
+            MSSQL_Tools pt = null;
 
             try
             {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
+                pt = Get_ToolInstance_forMaster();
 
-                // Create a test user...
-                string mortaluser1 = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                string mortaluser1_password = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var resa = pt.CreateUser(mortaluser1, mortaluser1_password);
+                // Create a test login...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                var resa = pt.Add_LocalLogin(mortaluser1, mortaluser1_password);
                 if(resa != 1)
                     Assert.Fail("Wrong Value");
 
-                // Get a list of system users...
-                var res4 = pt.GetUserList(out var userlist);
+                // Get a list of system login...
+                var res4 = pt.GetLoginList(out var userlist);
                 if(res4 != 1 || userlist == null || userlist.Count == 0)
                     Assert.Fail("Wrong Value");
 
                 if(!userlist.Contains(mortaluser1))
                     Assert.Fail("Wrong Value");
 
-                // Delete the test user...
-                var res7 = pt.DeleteUser(mortaluser1);
+                // Delete the test login...
+                var res7 = pt.DeleteLogin(mortaluser1);
                 if(res7 != 1)
                     Assert.Fail("Wrong Value");
 
-                // Check that the user is no longer present...
+                // Check that the login is no longer present...
                 var res8 = pt.Does_Login_Exist(mortaluser1);
                 if(res8 != 0)
                     Assert.Fail("Wrong Value");
 
-                // Get a list of system users...
-                var res4a = pt.GetUserList(out var userlist2);
+                // Get a list of system login...
+                var res4a = pt.GetLoginList(out var userlist2);
                 if(res4a != 1 || userlist2 == null || userlist2.Count == 0)
                     Assert.Fail("Wrong Value");
 
@@ -161,658 +206,250 @@ namespace OGA.MSSQL_Tests
         }
 
 
+        //  Test_1_1_2  Verify that we can query for a list of users of a database.
+        [TestMethod]
+        public async Task Test_1_1_2()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = Get_ToolInstance_forMaster();
+                pt.Cfg_ClearConnectionPoolOnClose = true;
+
+                // Create a test database...
+                var dbname = this.CreateTestDatabase(pt);
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = pt.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Add the user to the test database...
+                // NOTE: We don't specify any db roles for the user, here.
+                // So, we are simply adding the user to the database.
+                var resadd = pt.Add_User_to_Database(mortaluser1, dbname);
+                if(resadd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Verify that the user can connect to the test database...
+                {
+                    var pt1 = new MSSQL_Tools();
+                    pt1.Username = mortaluser1;
+                    pt1.Service = dbcreds.Service;
+                    pt1.HostName = dbcreds.Host;
+                    pt1.Password = mortaluser1_password;
+                    pt1.Cfg_ClearConnectionPoolOnClose = true;
+                    var restest = pt1.TestConnection_toDatabase(dbname);
+                    if(restest != 1)
+                        Assert.Fail("Wrong Value");
+                    pt1.Dispose();
+                }
+
+
+                // Query for the list of users in the database...
+                var resq = pt.GetDatabaseUsers(dbname, out var userlist);
+                if(resq != 1 || userlist == null)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that our test user is in the list...
+                if(!userlist.Contains(mortaluser1))
+                    Assert.Fail("Wrong Value");
+
+
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname, true);
+                if(res4 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res5 = pt.Does_Database_Exist(dbname);
+                if(res5 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Remove the user...
+                var resdeluser = pt.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+
         //  Test_1_2_1  Verify username validator limits to letters, numbers, and underscores.
         [TestMethod]
         public void Test_1_2_1()
         {
-            var res1 = Postgres_Tools.UserNameIsValid("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
+            var res1 = MSSQL_Tools.UserNameIsValid("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
             if (!res1)
                 Assert.Fail("Wrong Value");
 
-            var res2 = Postgres_Tools.UserNameIsValid("");
+            var res2 = MSSQL_Tools.UserNameIsValid("");
             if (res2)
                 Assert.Fail("Wrong Value");
 
-            var res3 = Postgres_Tools.UserNameIsValid(" ");
+            var res3 = MSSQL_Tools.UserNameIsValid(" ");
             if (res3)
                 Assert.Fail("Wrong Value");
 
-            var res4 = Postgres_Tools.UserNameIsValid("a ");
+            var res4 = MSSQL_Tools.UserNameIsValid("a ");
             if (res4)
                 Assert.Fail("Wrong Value");
 
-            var res5 = Postgres_Tools.UserNameIsValid(" a");
+            var res5 = MSSQL_Tools.UserNameIsValid(" a");
             if (res5)
                 Assert.Fail("Wrong Value");
 
-            var res6 = Postgres_Tools.UserNameIsValid("sadfsdf.assdds");
+            var res6 = MSSQL_Tools.UserNameIsValid("sadfsdf.assdds");
             if (res6)
                 Assert.Fail("Wrong Value");
 
-            var res7 = Postgres_Tools.UserNameIsValid("sadfsdf+assdds");
+            var res7 = MSSQL_Tools.UserNameIsValid("sadfsdf+assdds");
             if (res7)
                 Assert.Fail("Wrong Value");
         }
 
 
-        //  Test_1_3_1  Verify that we can add and delete a user.
+        //  Test_1_3_1  Verify that we can add and delete a SQL Host login.
         [TestMethod]
-        public void Test_1_3_1()
+        public async Task Test_1_3_1()
         {
-            Postgres_Tools pt = null;
+            MSSQL_Tools pt = null;
 
             try
             {
-                pt = new Postgres_Tools();
-                pt.Username = dbcreds.User;
-                pt.Hostname = dbcreds.Host;
-                pt.Password = dbcreds.Password;
-                pt.Database = dbcreds.Database;
+                pt = Get_ToolInstance_forMaster();
 
-                // Attempt to add a test user...
-                string username = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res = pt.CreateUser(username);
-                if(res != 1)
+                // Create a test login...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                var resa = pt.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                if(resa != 1)
                     Assert.Fail("Wrong Value");
 
-                // Attempt to delete user...
-                var res2 = pt.DeleteUser(username);
-                if(res2 != 1)
-                    Assert.Fail("Wrong Value");
-            }
-            finally
-            {
-                pt?.Dispose();
-            }
-        }
-
-        //  Test_1_3_2  Verify that no error results from deleting a nonexistant user.
-        [TestMethod]
-        public void Test_1_3_2()
-        {
-            Postgres_Tools pt = null;
-
-            try
-            {
-                pt = new Postgres_Tools();
-                pt.Username = dbcreds.User;
-                pt.Hostname = dbcreds.Host;
-                pt.Password = dbcreds.Password;
-                pt.Database = dbcreds.Database;
-
-                // Create a test username...
-                string username = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-
-                // Verify it doesn't exist...
-                var res2 = pt.Does_Login_Exist(username);
-                if(res2 != 0)
-                    Assert.Fail("Wrong Value");
-
-                // Attempt to delete the user...
-                var res3 = pt.DeleteUser(username);
-                if(res3 != 1)
-                    Assert.Fail("Wrong Value");
-            }
-            finally
-            {
-                pt?.Dispose();
-            }
-        }
-
-        //  Test_1_3_3  Verify that a nonsuperuser cannot add and delete a user.
-        [TestMethod]
-        public void Test_1_3_3()
-        {
-            Postgres_Tools pt = null;
-            Postgres_Tools pt2 = null;
-
-            try
-            {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
-
-                // Create a non superuser...
-                string mortaluser = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                string mortaluser_password = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res1 = pt.CreateUser(mortaluser, mortaluser_password);
-                if(res1 != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Open a connection with the non-superuser...
-                pt2 = new Postgres_Tools();
-                pt2.Hostname = dbcreds.Host;
-                pt2.Database = dbcreds.Database;
-                pt2.Username = mortaluser;
-                pt2.Password = mortaluser_password;
-
-                // Have the mortal user attempt to create a test user...
-                string username = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res2 = pt2.CreateUser(username);
-                if(res2 != -2)
-                    Assert.Fail("Wrong Value");
-            }
-            finally
-            {
-                pt?.Dispose();
-                pt2?.Dispose();
-            }
-        }
-
-
-        //  Test_1_4_1  Verify that we can change a test user's password.
-        [TestMethod]
-        public void Test_1_4_1()
-        {
-            Postgres_Tools pt = null;
-            Postgres_Tools pt2 = null;
-
-            try
-            {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
-
-                // Create a non superuser...
-                string mortaluser = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                string mortaluser_password = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res1 = pt.CreateUser(mortaluser, mortaluser_password);
-                if(res1 != 1)
-                    Assert.Fail("Wrong Value");
-
-
-                // Verify the test user can login...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser;
-                    d.Password = mortaluser_password;
-
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != 1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
-
-
-                // Attempt to change the test user's password...
-                string newpassword = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res2 = pt.ChangeUserPassword(mortaluser, newpassword);
+                // Check that the login is present...
+                var res2 = pt.Does_Login_Exist(mortaluser1);
                 if(res2 != 1)
                     Assert.Fail("Wrong Value");
 
-                // Verify the test user can login with the new password...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser;
-                    d.Password = newpassword;
+                // Delete the test login...
+                var res7 = pt.DeleteLogin(mortaluser1);
+                if(res7 != 1)
+                    Assert.Fail("Wrong Value");
 
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != 1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
-
-                // Delete the test user...
-                var res3 = pt.DeleteUser(mortaluser);
-                if(res3 != 1)
+                // Check that the login is no longer present...
+                var res8 = pt.Does_Login_Exist(mortaluser1);
+                if(res8 != 0)
                     Assert.Fail("Wrong Value");
             }
             finally
             {
                 pt?.Dispose();
-                pt2?.Dispose();
             }
         }
 
-        //  Test_1_4_2  Verify that a non superuser cannot change a test user's password.
+        //  Test_1_3_2  Verify that no error results from deleting a nonexistant SQL Host login.
         [TestMethod]
-        public void Test_1_4_2()
+        public async Task Test_1_3_2()
         {
-            Postgres_Tools pt = null;
-            Postgres_Tools pt2 = null;
+            MSSQL_Tools pt = null;
 
             try
             {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
+                pt = Get_ToolInstance_forMaster();
 
-                // Create test user 1...
-                string mortaluser1 = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                string mortaluser1_password = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res1 = pt.CreateUser(mortaluser1, mortaluser1_password);
-                if(res1 != 1)
+                // Create a test login name that we will NOT add as a login...
+                string mortaluser1 = this.GenerateTestUser();
+
+                // Delete the test login...
+                var res7 = pt.DeleteLogin(mortaluser1);
+                if(res7 != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+        //  Test_1_3_3  Verify that we can add and delete a database user.
+        [TestMethod]
+        public async Task Test_1_3_3()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = Get_ToolInstance_forMaster();
+                pt.Cfg_ClearConnectionPoolOnClose = true;
+
+                // Create a test database...
+                var dbname = this.CreateTestDatabase(pt);
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = pt.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Add the user to the test database...
+                // NOTE: We don't specify any db roles for the user, here.
+                // So, we are simply adding the user to the database.
+                var resadd = pt.Add_User_to_Database(mortaluser1, dbname);
+                if(resadd != 1)
                     Assert.Fail("Wrong Value");
 
-                // Create test user 2...
-                string mortaluser2 = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                string mortaluser2_password = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res2 = pt.CreateUser(mortaluser2, mortaluser2_password);
-                if(res2 != 1)
+
+                // Query for the list of users in the database...
+                var resq = pt.GetDatabaseUsers(dbname, out var userlist);
+                if(resq != 1 || userlist == null)
                     Assert.Fail("Wrong Value");
 
 
-                // Verify test user 1 can login...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser1;
-                    d.Password = mortaluser1_password;
-
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != 1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
-
-                // Verify test user 2 can login...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser2;
-                    d.Password = mortaluser2_password;
-
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != 1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
+                // Check that our test user is in the list...
+                if(!userlist.Contains(mortaluser1))
+                    Assert.Fail("Wrong Value");
 
 
-                // Have test user 1 attempt to change the password of test user 2...
-                string newpassword2 = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                {
-                    // Open a connection as test user 1...
-                    var pt1 = new Postgres_Tools();
-                    pt1.Hostname = dbcreds.Host;
-                    pt1.Database = dbcreds.Database;
-                    pt1.Username = mortaluser1;
-                    pt1.Password = mortaluser1_password;
+                // Delete the user from the database...
+                var resd = pt.DeleteUserfromDatabase(mortaluser1, dbname);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
 
-                    // Attempt to change test user 2's password...
-                    var res1a = pt1.ChangeUserPassword(mortaluser2, newpassword2);
-                    if(res1a != -2)
-                        Assert.Fail("Wrong Value");
 
-                    pt1.Dispose();
-                }
+                // Check that the user is no longer in the database...
+                var resexist = pt.Does_User_Exist_forDatabase(mortaluser1, dbname);
+                if(resexist != 0)
+                    Assert.Fail("Wrong Value");
 
-                // Verify test user 2 can still login with their original password...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser2;
-                    d.Password = mortaluser2_password;
 
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != 1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
-
-                // Verify test user 2 can NOT login with the password that test user 1 created for test user 2...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser2;
-                    d.Password = newpassword2;
-
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != -1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
-
-                // Delete test user 1...
-                var res4 = pt.DeleteUser(mortaluser1);
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname, true);
                 if(res4 != 1)
                     Assert.Fail("Wrong Value");
 
-                // Delete test user 2...
-                var res5 = pt.DeleteUser(mortaluser2);
-                if(res5 != 1)
-                    Assert.Fail("Wrong Value");
-            }
-            finally
-            {
-                pt?.Dispose();
-                pt2?.Dispose();
-            }
-        }
-
-        //  Test_1_4_3  Verify that a non superuser can change their own password.
-        [TestMethod]
-        public void Test_1_4_3()
-        {
-            Postgres_Tools pt = null;
-            Postgres_Tools pt2 = null;
-
-            try
-            {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
-
-                // Create test user 1...
-                string mortaluser1 = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                string mortaluser1_password = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res1 = pt.CreateUser(mortaluser1, mortaluser1_password);
-                if(res1 != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Verify test user 1 can login...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser1;
-                    d.Password = mortaluser1_password;
-
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != 1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
-
-                // Have test user 1 attempt to change their password...
-                string mortaluser1_password2 = Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                {
-                    // Open a connection as test user 1...
-                    var pt1 = new Postgres_Tools();
-                    pt1.Hostname  = dbcreds.Host;
-                    pt1.Database = dbcreds.Database;
-                    pt1.Username = mortaluser1;
-                    pt1.Password = mortaluser1_password;
-
-                    // Attempt to change test user 1's password...
-                    var res1a = pt1.ChangeUserPassword(mortaluser1, mortaluser1_password2);
-                    if(res1a != 1)
-                        Assert.Fail("Wrong Value");
-
-                    pt1.Dispose();
-                }
-
-                System.Threading.Thread.Sleep(500);
-
-                // Have test user 1 attempt to login with the new password...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser1;
-                    d.Password = mortaluser1_password2;
-
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != 1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
-
-                System.Threading.Thread.Sleep(500);
-
-                // Have test user 1 attempt to login with a known bogus password...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser1;
-                    d.Password = mortaluser1_password + "sdfsdf";
-
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != -1)
-                        Assert.Fail("Wrong Value");
-
-                    d.Dispose();
-                }
-
-                System.Threading.Thread.Sleep(500);
-
-                // Have test user 1 attempt to login with the old password...
-                {
-                    // Open a connection as the non-superuser...
-                    var d = new Postgres_DAL();
-                    d.Hostname = dbcreds.Host;
-                    d.Database = dbcreds.Database;
-                    d.Username = mortaluser1;
-                    d.Password = mortaluser1_password;
-
-
-#if (NET5 || NET6)
-// The version of NPGSQL library used by NET5 and NET6 don't use a NpgsqlDataSource instance.
-// Instead, they rely on the NpgsqlConnection instance.
-// Problem is, the datasource properly closes physical connections, making changed password testing work as expected.
-// But, the simple NpgsqlConnection instance allows a physical connection to not completely die, making our "old password" appear to still work.
-// So, we will accept a passing connection attempt, here, for NET5 and NET6 clients.
-// See this bugreport for details: https://github.com/npgsql/npgsql/issues/5720
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != 1)
-                        Assert.Fail("Wrong Value");
-#else
-// Here, we are using the version of NPGSQL used by NET7, which uses a NpgsqlDataSource instance.
-// NpgsqlDataSource properly recycles client connections, so that attempting to connect with our old password will fail as expected.
-// See this bugreport for details: https://github.com/npgsql/npgsql/issues/5720
-                    // Have the mortal user attempt to connect...
-                    var res = d.Test_Connection();
-                    if(res != -1)
-                        Assert.Fail("Wrong Value");
-#endif
-
-                    d.Dispose();
-                }
-
-                System.Threading.Thread.Sleep(500);
-
-                // Delete test user 1...
-                var res4 = pt.DeleteUser(mortaluser1);
-                if(res4 != 1)
-                    Assert.Fail("Wrong Value");
-            }
-            finally
-            {
-                pt?.Dispose();
-                pt2?.Dispose();
-            }
-        }
-
-
-        //  Test_1_5_1  Verify that we can check a superuser is actually a superuser.
-        [TestMethod]
-        public void Test_1_5_1()
-        {
-            Postgres_Tools pt = null;
-
-            try
-            {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
-
-                // Check that the postgres user is a superuser...
-                var res1 = pt.IsSuperUser("postgres");
-                if(res1 != 1)
-                    Assert.Fail("Wrong Value");
-            }
-            finally
-            {
-                pt?.Dispose();
-            }
-        }
-
-        //  Test_1_5_2  Verify that we can check a non superuser is not a superuser.
-        [TestMethod]
-        public void Test_1_5_2()
-        {
-            Postgres_Tools pt = null;
-
-            try
-            {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
-
-                // Attempt to add a test user...
-                string username = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res = pt.CreateUser(username);
-                if(res != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Check that the test user user is not a superuser...
-                var res1 = pt.IsSuperUser(username);
-                if(res1 != 0)
-                    Assert.Fail("Wrong Value");
-
-                // Attempt to delete user...
-                var res2 = pt.DeleteUser(username);
-                if(res2 != 1)
-                    Assert.Fail("Wrong Value");
-            }
-            finally
-            {
-                pt?.Dispose();
-            }
-        }
-
-        //  Test_1_5_3  Verify that we can promote a user to superuser.
-        [TestMethod]
-        public void Test_1_5_3()
-        {
-            Postgres_Tools pt = null;
-
-            try
-            {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
-
-                // Attempt to add a test user...
-                string username = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res = pt.CreateUser(username);
-                if(res != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Check that the test user user is not a superuser...
-                var res1 = pt.IsSuperUser(username);
-                if(res1 != 0)
-                    Assert.Fail("Wrong Value");
-
-                // Promote the test user...
-                var res2 = pt.GrantSuperUser(username);
-                if(res2 != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Verify it is now a super user...
-                var res3 = pt.IsSuperUser(username);
-                if(res3 != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Attempt to delete user...
-                var res4 = pt.DeleteUser(username);
-                if(res4 != 1)
-                    Assert.Fail("Wrong Value");
-            }
-            finally
-            {
-                pt?.Dispose();
-            }
-        }
-
-        //  Test_1_5_4  Verify that we can demote a user from superuser to regular user.
-        [TestMethod]
-        public void Test_1_5_4()
-        {
-            Postgres_Tools pt = null;
-
-            try
-            {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
-
-                // Attempt to add a test user...
-                string username = "testuser" + Nanoid.Nanoid.Generate(size: 10, alphabet:"abcdefghijklmnopqrstuvwxyz01234567890");
-                var res = pt.CreateUser(username);
-                if(res != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Check that the test user user is not a superuser...
-                var res1 = pt.IsSuperUser(username);
-                if(res1 != 0)
-                    Assert.Fail("Wrong Value");
-
-                // Promote the test user...
-                var res2 = pt.GrantSuperUser(username);
-                if(res2 != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Verify it is now a super user...
-                var res3 = pt.IsSuperUser(username);
-                if(res3 != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Demote the test user...
-                var res4 = pt.DenySuperUser(username);
-                if(res4 != 1)
-                    Assert.Fail("Wrong Value");
-
-                // Verify it is no longer a super user...
-                var res5 = pt.IsSuperUser(username);
+                // Check that the database is no longer present...
+                var res5 = pt.Does_Database_Exist(dbname);
                 if(res5 != 0)
                     Assert.Fail("Wrong Value");
 
-                // Attempt to delete user...
-                var res6 = pt.DeleteUser(username);
-                if(res6 != 1)
+                // Remove the user...
+                var resdeluser = pt.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
                     Assert.Fail("Wrong Value");
             }
             finally
@@ -821,24 +458,56 @@ namespace OGA.MSSQL_Tests
             }
         }
 
-
-        //  Test_1_6_1  Verify that we can check a user has CreateDB.
+        //  Test_1_3_4  Verify that no error results from deleting a nonexistant database user.
         [TestMethod]
-        public void Test_1_6_1()
+        public async Task Test_1_3_4()
         {
-            Postgres_Tools pt = null;
+            MSSQL_Tools pt = null;
 
             try
             {
-                pt = new Postgres_Tools();
-                pt.Hostname = dbcreds.Host;
-                pt.Database = dbcreds.Database;
-                pt.Username = dbcreds.User;
-                pt.Password = dbcreds.Password;
+                pt = Get_ToolInstance_forMaster();
+                pt.Cfg_ClearConnectionPoolOnClose = true;
 
-                // Check that the postgres user has CreateDB...
-                var res1 = pt.HasDBCreate("postgres");
-                if(res1 != 1)
+                // Create a test database...
+                var dbname = this.CreateTestDatabase(pt);
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = pt.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Verify the user is not in the database...
+                var resexist = pt.Does_User_Exist_forDatabase(mortaluser1, dbname);
+                if(resexist != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Delete the user from the database...
+                // Verify we get no error...
+                var resd = pt.DeleteUserfromDatabase(mortaluser1, dbname);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Delete the database...
+                var res4 = pt.Drop_Database(dbname, true);
+                if(res4 != 1)
+                    Assert.Fail("Wrong Value");
+
+                // Check that the database is no longer present...
+                var res5 = pt.Does_Database_Exist(dbname);
+                if(res5 != 0)
+                    Assert.Fail("Wrong Value");
+
+                // Remove the user...
+                var resdeluser = pt.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
                     Assert.Fail("Wrong Value");
             }
             finally
@@ -847,9 +516,1513 @@ namespace OGA.MSSQL_Tests
             }
         }
 
+        //  Test_1_3_5  Verify that we get a specific error when adding a local login with a password that doesn't meet complexity requirements.
+        [TestMethod]
+        public async Task Test_1_3_5()
+        {
+            MSSQL_Tools pt = null;
+
+            try
+            {
+                pt = Get_ToolInstance_forMaster();
+
+                // Create a test login with a bad password...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = "12345678";
+                var resa = pt.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                if(resa != -3)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                pt?.Dispose();
+            }
+        }
+
+
+        //  Test_1_4_1  Verify that we can change the password of a local login account.
+        [TestMethod]
+        public async Task Test_1_4_1()
+        {
+            MSSQL_Tools ptadmin = null;
+            MSSQL_Tools usertool = null;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Create a tool instance for the test user...
+                usertool = new MSSQL_Tools();
+                usertool.HostName = dbcreds.Host;
+                usertool.Service = dbcreds.Service;
+                usertool.Username = mortaluser1;
+                usertool.Password = mortaluser1_password;
+
+
+                // Verify the user can connect to the SQL host...
+                var resconntest = usertool.TestConnection();
+                    if(resconntest != 1)
+                            Assert.Fail("Wrong Value");
+
+
+                // Change the user's password...
+                string mortaluser1_passwordnew = this.GenerateUserPassword();
+                var reschg = ptadmin.ChangeLoginPassword(mortaluser1, mortaluser1_passwordnew);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Recycle the test user's tool instance...
+                usertool.Dispose();
+                usertool = new MSSQL_Tools();
+                usertool.HostName = dbcreds.Host;
+                usertool.Service = dbcreds.Service;
+                usertool.Username = mortaluser1;
+                usertool.Password = mortaluser1_passwordnew;
+
+
+                // Verify the user can connect to the SQL host with the new password...
+                var resconntest2 = usertool.TestConnection();
+                if(resconntest2 != 1)
+                        Assert.Fail("Wrong Value");
+
+                // Dispose the user's tool instance...
+                usertool.Dispose();
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+                usertool?.Dispose();
+            }
+        }
+
+        //  Test_1_4_2  Verify that we get a specific error when changing the password of a local login to a password that doesn't meet complexity requirements.
+        [TestMethod]
+        public async Task Test_1_4_2()
+        {
+            MSSQL_Tools ptadmin = null;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Change the user's password to a bogus one...
+                string mortaluser1_passwordnew = "123456";
+                var reschg = ptadmin.ChangeLoginPassword(mortaluser1, mortaluser1_passwordnew);
+                if(reschg != -3)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+
+        //  Test_2_1_1  Verify that we can check a sysadmin user is actually a sysadmin.
+        [TestMethod]
+        public async Task Test_2_1_1()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.sysadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_1_2  Verify that we can check a non sysadmin is not a sysadmin.
+        [TestMethod]
+        public async Task Test_2_1_2()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.sysadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Check if the login does NOT have the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_1_3  Verify that we can promote a user to sysadmin.
+        [TestMethod]
+        public async Task Test_2_1_3()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.sysadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_1_4  Verify that we can demote a user from sysadmin to regular user.
+        [TestMethod]
+        public async Task Test_2_1_4()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.sysadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the role...
+                var resd = ptadmin.Drop_Login_Role(mortaluser1, role);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user no longer has the role...
+                var reshas2 = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas2 != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+
+        //  Test_2_2_1  Verify that we can check a diskadmin user has diskadmin.
+        [TestMethod]
+        public async Task Test_2_2_1()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.diskadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_2_2  Verify that we can check a non-admin user does not have diskadmin.
+        [TestMethod]
+        public async Task Test_2_2_2()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.diskadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Check if the login does NOT have the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_2_3  Verify that we can grant diskadmin to a user.
+        [TestMethod]
+        public async Task Test_2_2_3()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.diskadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_2_4  Verify that we can deny diskadmin to a user.
+        [TestMethod]
+        public async Task Test_2_2_4()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.diskadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the role...
+                var resd = ptadmin.Drop_Login_Role(mortaluser1, role);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user no longer has the role...
+                var reshas2 = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas2 != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+    
+        //  Test_2_3_1  Verify that we can check a bulkadmin user has bulkadmin.
+        [TestMethod]
+        public async Task Test_2_3_1()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.bulkadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_3_2  Verify that we can check a non-admin user does not have bulkadmin.
+        [TestMethod]
+        public async Task Test_2_3_2()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.bulkadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Check if the login does NOT have the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_3_3  Verify that we can grant bulkadmin to a user.
+        [TestMethod]
+        public async Task Test_2_3_3()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.bulkadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_3_4  Verify that we can deny bulkadmin to a user.
+        [TestMethod]
+        public async Task Test_2_3_4()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.bulkadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the role...
+                var resd = ptadmin.Drop_Login_Role(mortaluser1, role);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user no longer has the role...
+                var reshas2 = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas2 != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_4_1  Verify that we can check a setupadmin user has setupadmin.
+        [TestMethod]
+        public async Task Test_2_4_1()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.setupadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_4_2  Verify that we can check a non-admin user does not have setupadmin.
+        [TestMethod]
+        public async Task Test_2_4_2()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.setupadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Check if the login does NOT have the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_4_3  Verify that we can grant setupadmin to a user.
+        [TestMethod]
+        public async Task Test_2_4_3()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.setupadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_4_4  Verify that we can deny setupadmin to a user.
+        [TestMethod]
+        public async Task Test_2_4_4()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.setupadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the role...
+                var resd = ptadmin.Drop_Login_Role(mortaluser1, role);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user no longer has the role...
+                var reshas2 = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas2 != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_5_1  Verify that we can check a processadmin user has processadmin.
+        [TestMethod]
+        public async Task Test_2_5_1()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.processadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_5_2  Verify that we can check a non-admin user does not have processadmin.
+        [TestMethod]
+        public async Task Test_2_5_2()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.processadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Check if the login does NOT have the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_5_3  Verify that we can grant processadmin to a user.
+        [TestMethod]
+        public async Task Test_2_5_3()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.processadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_5_4  Verify that we can deny processadmin to a user.
+        [TestMethod]
+        public async Task Test_2_5_4()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.processadmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the role...
+                var resd = ptadmin.Drop_Login_Role(mortaluser1, role);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user no longer has the role...
+                var reshas2 = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas2 != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_6_1  Verify that we can check a serveradmin user has serveradmin.
+        [TestMethod]
+        public async Task Test_2_6_1()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.serveradmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_6_2  Verify that we can check a non-admin user does not have serveradmin.
+        [TestMethod]
+        public async Task Test_2_6_2()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.serveradmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Check if the login does NOT have the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_6_3  Verify that we can grant serveradmin to a user.
+        [TestMethod]
+        public async Task Test_2_6_3()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.serveradmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_6_4  Verify that we can deny serveradmin to a user.
+        [TestMethod]
+        public async Task Test_2_6_4()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.serveradmin;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the role...
+                var resd = ptadmin.Drop_Login_Role(mortaluser1, role);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user no longer has the role...
+                var reshas2 = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas2 != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_7_1  Verify that we can check a dbcreator user has dbcreator.
+        [TestMethod]
+        public async Task Test_2_7_1()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.dbcreator;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_7_2  Verify that we can check a non-admin user does not have dbcreator.
+        [TestMethod]
+        public async Task Test_2_7_2()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.dbcreator;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Check if the login does NOT have the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_7_3  Verify that we can grant dbcreator to a user.
+        [TestMethod]
+        public async Task Test_2_7_3()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.dbcreator;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check if the login has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+        //  Test_2_7_4  Verify that we can deny dbcreator to a user.
+        [TestMethod]
+        public async Task Test_2_7_4()
+        {
+            MSSQL_Tools ptadmin = null;
+            eSQLRoles role = eSQLRoles.dbcreator;
+
+            try
+            {
+                // Create the tools instance...
+                ptadmin = Get_ToolInstance_forMaster();
+                //ptadmin.Cfg_ClearConnectionPoolOnClose = true;
+
+
+                // Create a test user...
+                string mortaluser1 = this.GenerateTestUser();
+                string mortaluser1_password = this.GenerateUserPassword();
+                {
+                    var resa = ptadmin.Add_LocalLogin(mortaluser1, mortaluser1_password);
+                    if(resa != 1)
+                        Assert.Fail("Wrong Value");
+                }
+
+
+                // Give the user the role...
+                var reschg = ptadmin.Add_Login_Role(mortaluser1, role);
+                if(reschg != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user has the role...
+                var reshas = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the role...
+                var resd = ptadmin.Drop_Login_Role(mortaluser1, role);
+                if(resd != 1)
+                    Assert.Fail("Wrong Value");
+
+
+                // Check that the user no longer has the role...
+                var reshas2 = ptadmin.Does_Login_HaveRole(mortaluser1, role);
+                if(reshas2 != 0)
+                    Assert.Fail("Wrong Value");
+
+
+                // Remove the user...
+                var resdeluser = ptadmin.DeleteLogin(mortaluser1);
+                if(resdeluser != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                ptadmin?.Dispose();
+            }
+        }
+
+/*
+
+
+
+
         //  Test_1_6_2  Verify that we can check a user does not have CreateDB.
         [TestMethod]
-        public void Test_1_6_2()
+        public async Task Test_1_6_2()
         {
             Postgres_Tools pt = null;
 
@@ -885,7 +2058,7 @@ namespace OGA.MSSQL_Tests
 
         //  Test_1_6_3  Verify that we can grant CreateDB to a user.
         [TestMethod]
-        public void Test_1_6_3()
+        public async Task Test_1_6_3()
         {
             Postgres_Tools pt = null;
 
@@ -931,7 +2104,7 @@ namespace OGA.MSSQL_Tests
 
         //  Test_1_6_4  Verify that we can deny CreateDB to a user.
         [TestMethod]
-        public void Test_1_6_4()
+        public async Task Test_1_6_4()
         {
             Postgres_Tools pt = null;
 
@@ -988,7 +2161,7 @@ namespace OGA.MSSQL_Tests
 
         //  Test_1_7_1  Verify that we can check a user has CreateRole.
         [TestMethod]
-        public void Test_1_7_1()
+        public async Task Test_1_7_1()
         {
             Postgres_Tools pt = null;
 
@@ -1013,7 +2186,7 @@ namespace OGA.MSSQL_Tests
 
         //  Test_1_7_2  Verify that we can check a user does not have CreateRole.
         [TestMethod]
-        public void Test_1_7_2()
+        public async Task Test_1_7_2()
         {
             Postgres_Tools pt = null;
 
@@ -1049,7 +2222,7 @@ namespace OGA.MSSQL_Tests
 
         //  Test_1_7_3  Verify that we can grant CreateRole to a user.
         [TestMethod]
-        public void Test_1_7_3()
+        public async Task Test_1_7_3()
         {
             Postgres_Tools pt = null;
 
@@ -1095,7 +2268,7 @@ namespace OGA.MSSQL_Tests
 
         //  Test_1_7_4  Verify that we can deny CreateRole to a user.
         [TestMethod]
-        public void Test_1_7_4()
+        public async Task Test_1_7_4()
         {
             Postgres_Tools pt = null;
 
@@ -1149,6 +2322,7 @@ namespace OGA.MSSQL_Tests
             }
         }
 
+*/
 
         #region Private Methods
 

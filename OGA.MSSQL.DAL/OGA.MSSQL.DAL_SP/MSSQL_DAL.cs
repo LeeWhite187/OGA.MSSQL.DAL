@@ -1550,6 +1550,59 @@ namespace OGA.MSSQL
         /// <param name="fieldname"></param>
         /// <param name="val"></param>
         /// <returns></returns>
+        static public int Recover_FieldValue_from_DBRow(System.Data.DataRow dr, string fieldname, out long val)
+        {
+            string tempstr = "";
+
+            try
+            {
+                // Get the raw value.
+                tempstr = dr[fieldname] + "";
+
+                // See if the stored value is a null.
+                if (tempstr == "")
+                {
+                    // Value is a null.
+                    val = int.MinValue;
+                    return 0;
+                }
+
+                // Attempt to convert the value.
+                try
+                {
+                    long sss = Convert.ToInt64(tempstr);
+
+                    val = sss;
+
+                    return 1;
+                }
+                catch (Exception)
+                {
+                    val = int.MinValue;
+                    return -1;
+                }
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:-:{nameof(Recover_FieldValue_from_DBRow)} - " +
+                    "An exception occurred while atttempting to recover a field value from a database row.");
+
+                val = int.MinValue;
+                return -2;
+            }
+        }
+        /// <summary>
+        /// Returns the following:
+        ///  1 - Successfully recovered the value.
+        ///  0 - Value was null.
+        /// -1 - Value was not parseable to the target type.
+        /// -2 - Column does not exist.
+        /// </summary>
+        /// <param name="dr"></param>
+        /// <param name="fieldname"></param>
+        /// <param name="val"></param>
+        /// <returns></returns>
         static public int Recover_FieldValue_from_DBRow(System.Data.DataRow dr, string fieldname, out float val)
         {
             string tempstr = "";

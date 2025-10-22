@@ -12,7 +12,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)CreateVerify\Model\Enumerations.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Enumerations.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Model\ColumnInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Model\SQLHostRole_Assignment.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Model\DBRole_Assignment.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Model\PriKeyConstraint.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Model\SQL_Strings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Model\TableColumnDef.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Model\TableDefinition.cs" />
