@@ -11,8 +11,9 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\ProjectTest_Base.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\TestTemplate_Assembly.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)MSSQL_Tools_Login_Tests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)MSSQL_Tools_Tests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TableColumnMgmt_Tests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)UserMgmt_Tests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)MSSQL_Tools_UserMgmt_Tests.cs" />
   </ItemGroup>
 </Project>

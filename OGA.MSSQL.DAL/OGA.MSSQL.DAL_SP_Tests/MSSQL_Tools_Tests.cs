@@ -652,7 +652,7 @@ namespace OGA.MSSQL_Tests
                 // Add the user to the test database...
                 // NOTE: We don't specify any db roles for the user, here.
                 // So, we are simply adding the user to the database.
-                var resadd = pt.Add_User_to_Database(mortaluser1, dbname);
+                var resadd = pt.Add_User_to_Database(dbname, mortaluser1);
                 if(resadd != 1)
                     Assert.Fail("Wrong Value");
 

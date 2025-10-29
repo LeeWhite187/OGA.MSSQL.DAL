@@ -6,6 +6,7 @@ using OGA.MSSQL.DAL;
 using OGA.MSSQL.DAL.CreateVerify.Model;
 using OGA.MSSQL.DAL.Model;
 using OGA.MSSQL.DAL_SP.Model;
+using OGA.MSSQL.Model;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -1777,7 +1778,7 @@ namespace OGA.MSSQL
         #endregion
 
 
-        #region User Management
+        #region Login Management
 
         /// <summary>
         /// Returns 1 if found, 0 if not, negatives for errors.
@@ -2112,6 +2113,89 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
+        /// Public call to delete a user account from the SQL host.
+        /// NOTE: This call works with 'Login' as server-level principles, not with users in a database.
+        /// NOTE: If you want to remove a user from a database, call DeleteUserfromDatabase().
+        /// Confirms the user was deleted.
+        /// Returns 1 for success. Negatives for errors.
+        /// </summary>
+        /// <param name="username"></param>
+        /// <returns></returns>
+        public int DeleteLogin(string username)
+        {
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                    $"Attempting to delete user...");
+
+                if (string.IsNullOrWhiteSpace(username))
+                {
+                    // Empty username.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                        $"Empty Username.");
+
+                    return -1;
+                }
+
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                // Delete the login...
+                string sql = $"IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'{username}') DROP LOGIN [{username}];";
+
+                if (this._master_dal.Execute_NonQuery(sql).res != -1)
+                {
+                    // Delete login command failed.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                        "Delete command failed.");
+
+                    return -2;
+                }
+
+                // Check if the login was deleted...
+                var resq = this.Does_Login_Exist(username);
+                if (resq != 0)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                        "Login was not confirmed as dropped.");
+
+                    return -3;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
+                    $"Exception occurred to SQL Host.");
+
+                return -20;
+            }
+            finally
+            {
+            }
+        }
+
+        #endregion
+
+
+        #region User Management
+
+        /// <summary>
         /// Returns 1 for success. Negatives for errors.
         /// </summary>
         /// <param name="database">Database name</param>
@@ -2201,90 +2285,12 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
-        /// Public call to delete a user account from the SQL host.
-        /// NOTE: This call works with 'Login' as server-level principles, not with users in a database.
-        /// NOTE: If you want to remove a user from a database, call DeleteUserfromDatabase().
-        /// Confirms the user was deleted.
-        /// Returns 1 for success. Negatives for errors.
-        /// </summary>
-        /// <param name="username"></param>
-        /// <returns></returns>
-        public int DeleteLogin(string username)
-        {
-            try
-            {
-                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
-                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
-                    $"Attempting to delete user...");
-
-                if (string.IsNullOrWhiteSpace(username))
-                {
-                    // Empty username.
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
-                        $"Empty Username.");
-
-                    return -1;
-                }
-
-                // Connect to the database...
-                if (!this.ConnectMasterDAL())
-                {
-                    // Failed to connect to master.
-
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
-                        $"Failed to connect to server.");
-
-                    return -1;
-                }
-
-                // Delete the login...
-                string sql = $"IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'{username}') DROP LOGIN [{username}];";
-
-                if (this._master_dal.Execute_NonQuery(sql).res != -1)
-                {
-                    // Delete login command failed.
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
-                        "Delete command failed.");
-
-                    return -2;
-                }
-
-                // Check if the login was deleted...
-                var resq = this.Does_Login_Exist(username);
-                if (resq != 0)
-                {
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
-                        "Login was not confirmed as dropped.");
-
-                    return -3;
-                }
-
-                return 1;
-            }
-            catch (Exception e)
-            {
-                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
-                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(DeleteLogin)} - " +
-                    $"Exception occurred to SQL Host.");
-
-                return -20;
-            }
-            finally
-            {
-            }
-        }
-
-        /// <summary>
         /// Returns 1 if found, 0 if not, negatives for errors.
         /// </summary>
         /// <param name="username">User string</param>
         /// <param name="database">Target database</param>
         /// <returns></returns>
-        public int Does_User_Exist_forDatabase(string username, string database)
+        public int Does_User_Exist_forDatabase(string database, string username)
         {
             try
             {
@@ -2362,7 +2368,7 @@ namespace OGA.MSSQL
         /// <param name="database">Name of database</param>
         /// <param name="desiredroles">List of desired roles to add to user</param>
         /// <returns></returns>
-        public int Add_User_to_Database(string login, string database, List<eSQLRoles>? desiredroles = null)
+        public int Add_User_to_Database(string database, string login, List<eSQLRoles>? desiredroles = null)
         {
             try
             {
@@ -2381,13 +2387,13 @@ namespace OGA.MSSQL
                 // We need to, as well, check that the user is a user in the database.
 
                 // see if the login is also a user in the target database...
-                var resexists = this.Does_User_Exist_forDatabase(login, database);
+                var resexists = this.Does_User_Exist_forDatabase(database, login);
                 if (resexists == 0)
                 {
                     // User not found in database.
 
                     // We need to add the user to the target database.
-                    if (this.priv_AddUsertoDatabase(login, database) != 1)
+                    if (this.priv_AddUsertoDatabase(database, login) != 1)
                     {
                         // Failed to add user to database.
                         OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
@@ -2426,7 +2432,7 @@ namespace OGA.MSSQL
                 // We will reconcile user roles to match desired.
 
                 // Get a list of roles that the user currently has...
-                if (this.Get_DatabaseRoles_for_User(login, database, out var foundroles) != 1)
+                if (this.Get_DatabaseRoles_for_User(database, login, out var foundroles) != 1)
                 {
                     // Failed to get roles for the user.
                     return -2;
@@ -2435,7 +2441,7 @@ namespace OGA.MSSQL
 
                 // Reconcile the found roles with desired...
                 // From the given set of roles to expect for the user, and the current roles for the user, we need to determine the list of ones to add and one to remove.
-                var pcl = DetermineDatabaseRoleChanges(foundroles, desiredroles);
+                var pcl = DetermineRoleChanges(foundroles, desiredroles);
                 if(pcl.Count == 0)
                 {
                     // No changes to make.
@@ -2452,12 +2458,12 @@ namespace OGA.MSSQL
                     if(r.isgrant)
                     {
                         // Role to add.
-                        sqladd = sqladd + $"ALTER ROLE [{r.ToString()}] ADD MEMBER [{login}];";
+                        sqladd = sqladd + $"ALTER ROLE [{r.role.ToString()}] ADD MEMBER [{login}];";
                     }
                     else
                     {
                         // Role to remove.
-                        sqlremove = sqlremove + $"ALTER ROLE [{r.ToString()}] DROP MEMBER [{login}];";
+                        sqlremove = sqlremove + $"ALTER ROLE [{r.role.ToString()}] DROP MEMBER [{login}];";
                     }
                 }
 
@@ -2520,7 +2526,7 @@ namespace OGA.MSSQL
         /// <param name="username"></param>
         /// <param name="database"></param>
         /// <returns></returns>
-        public int DeleteUserfromDatabase(string username, string database)
+        public int DeleteUserfromDatabase(string database, string username)
         {
             try
             {
@@ -2564,7 +2570,7 @@ namespace OGA.MSSQL
                 }
 
                 // Check if the user was deleted...
-                var resq = this.Does_User_Exist_forDatabase(username, database);
+                var resq = this.Does_User_Exist_forDatabase(database, username);
                 if (resq != 0)
                 {
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
@@ -2686,6 +2692,160 @@ namespace OGA.MSSQL
         #region Permissions Management
 
         /// <summary>
+        /// Get SQL Host Roles assigned to the given Login.
+        /// </summary>
+        /// <param name="login"></param>
+        /// <param name="roles"></param>
+        /// <returns></returns>
+        public int Get_SQlHostRoles_for_Login(string login, out List<OGA.MSSQL.eSQLRoles> roles)
+        {
+            roles = null;
+
+            if (Get_Roles_for_SQLHost(out var serverroles) != 1)
+            {
+                // Error occurred.
+                return -1;
+            }
+            // If here, we have a list of roles.
+
+            roles = new List<eSQLRoles>();
+
+            // Sift through them for the given login.
+            foreach (var s in serverroles)
+            {
+                if (s.Login.ToLower() == login.ToLower())
+                {
+                    // Got a match.
+
+                    // See if we can recover a sql role from the Groupname field.
+                    eSQLRoles dbr = Recover_SQLRoles_from_String(s.GroupName);
+                    if (dbr == eSQLRoles.none)
+                    {
+                        // No sql role in the current record.
+                        // Nothing to add.
+                    }
+                    else
+                    {
+                        // sql role recovered.
+                        // Add it to the list.
+                        roles.Add(dbr);
+                    }
+                }
+            }
+
+            return 1;
+        }
+
+        /// <summary>
+        /// Get a list of all roles for the SQL Host.
+        /// </summary>
+        /// <param name="roles"></param>
+        /// <returns></returns>
+        public int Get_Roles_for_SQLHost(out List<OGA.MSSQL.Model.SQLHostRole_Assignment> roles)
+        {
+            System.Data.DataTable dt = null;
+            roles = null;
+
+            // Compose the query that will pull SQL Host roles.
+            string sql = @"SELECT
+                                roles.name AS ServerRoleName,
+	                            roles.sid AS [RoleSid],
+                                members.principal_id AS LoginPrincipalId,
+                                members.name AS LoginName,
+                                members.type_desc AS LoginType,
+                                roles.type_desc AS RoleType
+                            FROM sys.server_role_members AS rm
+                            JOIN sys.server_principals AS members
+                                ON rm.member_principal_id = members.principal_id
+                            JOIN sys.server_principals AS roles
+                                ON rm.role_principal_id = roles.principal_id
+                            ORDER BY members.name, roles.name;";
+
+            // Now, get the set of host roles...
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "Attempting to get host roles..."
+                        , _classname);
+
+                // Connect to the database...
+                if (!this.ConnectMasterDAL())
+                {
+                    // Failed to connect to master.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_Roles_for_SQLHost)} - " +
+                        $"Failed to connect to server.");
+
+                    return -1;
+                }
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "We can connect to the SQL Host."
+                        , _classname);
+
+                if (this._master_dal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get roles for the SQL Host.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to get roles for the SQL Host."
+                            , _classname);
+
+                    return -2;
+                }
+                // We have a datatable of SQL Host roles.
+
+                // See if it contains anything.
+                if (dt.Rows.Count == 0)
+                {
+                    // No SQL Host roles are defined.
+                    // Return an error.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Did not get any SQL Host roles. Something is wrong."
+                            , _classname);
+
+                    return -3;
+                }
+                // If here, we have SQL Host roles.
+
+                roles = new List<OGA.MSSQL.Model.SQLHostRole_Assignment>();
+
+                // Convert each result row to a database role instance.
+                foreach (System.Data.DataRow r in dt.Rows)
+                {
+                    OGA.MSSQL.Model.SQLHostRole_Assignment role = new OGA.MSSQL.Model.SQLHostRole_Assignment();
+
+                    role.GroupName = r["ServerRoleName"] + "";
+                    role.Login = r["LoginName"] + "";
+                    role.Principal_ID = r["LoginPrincipalId"] + "";
+                    role.RoleSID = r["RoleSid"] + "";
+
+                    roles.Add(role);
+                }
+                // If here, we got a list of SQL Host roles.
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred"
+                    , _classname);
+
+                return -20;
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
+
+        /// <summary>
         /// Adds the given server role to a SQL host login.
         /// Returns 1 on success, 1 if already set, negatives for errors.
         /// </summary>
@@ -2702,7 +2862,7 @@ namespace OGA.MSSQL
                 {
                     // Error occurred.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Login not found found."
+                        "Login not found."
                             , _classname);
 
                     return -1;
@@ -2798,7 +2958,7 @@ namespace OGA.MSSQL
                 {
                     // Error occurred.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Login not found found."
+                        "Login not found."
                             , _classname);
 
                     return -1;
@@ -2916,7 +3076,7 @@ namespace OGA.MSSQL
                 {
                     // Error occurred.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Login not found found."
+                        "Login not found."
                             , _classname);
 
                     return -1;
@@ -2946,7 +3106,7 @@ namespace OGA.MSSQL
 
                 // Reconcile the found roles with desired...
                 // From the given set of roles to expect for the login, and the current roles for the login, we need to determine the list of ones to add and one to remove.
-                var pcl = DetermineDatabaseRoleChanges(foundroles, desiredroles);
+                var pcl = DetermineRoleChanges(foundroles, desiredroles);
                 if(pcl.Count == 0)
                 {
                     // No changes to make.
@@ -2963,12 +3123,12 @@ namespace OGA.MSSQL
                     if(r.isgrant)
                     {
                         // Role to add.
-                        sqladd = sqladd + $"ALTER SERVER ROLE [{r.ToString()}] ADD MEMBER [{login}];";
+                        sqladd = sqladd + $"ALTER SERVER ROLE [{r.role.ToString()}] ADD MEMBER [{login}];";
                     }
                     else
                     {
                         // Role to remove.
-                        sqlremove = sqlremove + $"ALTER SERVER ROLE [{r.ToString()}] DROP MEMBER [{login}];";
+                        sqlremove = sqlremove + $"ALTER SERVER ROLE [{r.role.ToString()}] DROP MEMBER [{login}];";
                     }
                 }
 
@@ -3021,140 +3181,13 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
-        /// Get SQL Host Roles assigned to the given Login.
-        /// </summary>
-        /// <param name="login"></param>
-        /// <param name="roles"></param>
-        /// <returns></returns>
-        public int Get_SQlHostRoles_for_Login(string login, out List<OGA.MSSQL.eSQLRoles> roles)
-        {
-            roles = null;
-
-            if (Get_Roles_for_SQLHost(out var serverroles) != 1)
-            {
-                // Error occurred.
-                return -1;
-            }
-            // If here, we have a list of roles.
-
-            roles = new List<eSQLRoles>();
-
-            // Sift through them for the given login.
-            foreach (var s in serverroles)
-            {
-                if (s.Login.ToLower() == login.ToLower())
-                {
-                    // Got a match.
-
-                    // See if we can recover a sql role from the Groupname field.
-                    eSQLRoles dbr = Recover_SQLRoles_from_String(s.GroupName);
-                    if (dbr == eSQLRoles.none)
-                    {
-                        // No sql role in the current record.
-                        // Nothing to add.
-                    }
-                    else
-                    {
-                        // sql role recovered.
-                        // Add it to the list.
-                        roles.Add(dbr);
-                    }
-                }
-            }
-
-            return 1;
-        }
-
-        /// <summary>
-        /// Determines the net changes between two given sets of database roles.
-        /// Used by logic that updates user database roles as required.
-        /// </summary>
-        /// <param name="existingprivs"></param>
-        /// <param name="desiredprivs"></param>
-        /// <returns></returns>
-        static public List<(bool isgrant, eSQLRoles sfsd)> DetermineDatabaseRoleChanges(List<eSQLRoles> existingprivs, List<eSQLRoles> desiredprivs)
-        {
-            var pcl = new List<(bool isgrant, eSQLRoles priv)>();
-
-            // Figure out desiredprivs to add...
-            if (desiredprivs.Contains(eSQLRoles.db_accessadmin) && !existingprivs.Contains(eSQLRoles.db_accessadmin))
-                pcl.Add((true, eSQLRoles.db_accessadmin));
-            if (desiredprivs.Contains(eSQLRoles.db_backupoperator) && !existingprivs.Contains(eSQLRoles.db_backupoperator))
-                pcl.Add((true, eSQLRoles.db_backupoperator));
-            if (desiredprivs.Contains(eSQLRoles.db_datareader) && !existingprivs.Contains(eSQLRoles.db_datareader))
-                pcl.Add((true, eSQLRoles.db_datareader));
-            if (desiredprivs.Contains(eSQLRoles.db_datawriter) && !existingprivs.Contains(eSQLRoles.db_datawriter))
-                pcl.Add((true, eSQLRoles.db_datawriter));
-            if (desiredprivs.Contains(eSQLRoles.db_ddladmin) && !existingprivs.Contains(eSQLRoles.db_ddladmin))
-                pcl.Add((true, eSQLRoles.db_ddladmin));
-            if (desiredprivs.Contains(eSQLRoles.db_denydatareader) && !existingprivs.Contains(eSQLRoles.db_denydatareader))
-                pcl.Add((true, eSQLRoles.db_denydatareader));
-            if (desiredprivs.Contains(eSQLRoles.db_denydatawriter) && !existingprivs.Contains(eSQLRoles.db_denydatawriter))
-                pcl.Add((true, eSQLRoles.db_denydatawriter));
-            if (desiredprivs.Contains(eSQLRoles.db_owner) && !existingprivs.Contains(eSQLRoles.db_owner))
-                pcl.Add((true, eSQLRoles.db_owner));
-            if (desiredprivs.Contains(eSQLRoles.db_securityadmin) && !existingprivs.Contains(eSQLRoles.db_securityadmin))
-                pcl.Add((true, eSQLRoles.db_securityadmin));
-            if (desiredprivs.Contains(eSQLRoles.sysadmin) && !existingprivs.Contains(eSQLRoles.sysadmin))
-                pcl.Add((true, eSQLRoles.sysadmin));
-            if (desiredprivs.Contains(eSQLRoles.diskadmin) && !existingprivs.Contains(eSQLRoles.diskadmin))
-                pcl.Add((true, eSQLRoles.diskadmin));
-            if (desiredprivs.Contains(eSQLRoles.bulkadmin) && !existingprivs.Contains(eSQLRoles.bulkadmin))
-                pcl.Add((true, eSQLRoles.bulkadmin));
-            if (desiredprivs.Contains(eSQLRoles.setupadmin) && !existingprivs.Contains(eSQLRoles.setupadmin))
-                pcl.Add((true, eSQLRoles.setupadmin));
-            if (desiredprivs.Contains(eSQLRoles.processadmin) && !existingprivs.Contains(eSQLRoles.processadmin))
-                pcl.Add((true, eSQLRoles.processadmin));
-            if (desiredprivs.Contains(eSQLRoles.serveradmin) && !existingprivs.Contains(eSQLRoles.serveradmin))
-                pcl.Add((true, eSQLRoles.serveradmin));
-            if (desiredprivs.Contains(eSQLRoles.dbcreator) && !existingprivs.Contains(eSQLRoles.dbcreator))
-                pcl.Add((true, eSQLRoles.dbcreator));
-
-            // Figure out privileges to remove...
-            if (!desiredprivs.Contains(eSQLRoles.db_accessadmin) && existingprivs.Contains(eSQLRoles.db_accessadmin))
-                pcl.Add((false, eSQLRoles.db_accessadmin));
-            if (!desiredprivs.Contains(eSQLRoles.db_backupoperator) && existingprivs.Contains(eSQLRoles.db_backupoperator))
-                pcl.Add((false, eSQLRoles.db_backupoperator));
-            if (!desiredprivs.Contains(eSQLRoles.db_datareader) && existingprivs.Contains(eSQLRoles.db_datareader))
-                pcl.Add((false, eSQLRoles.db_datareader));
-            if (!desiredprivs.Contains(eSQLRoles.db_datawriter) && existingprivs.Contains(eSQLRoles.db_datawriter))
-                pcl.Add((false, eSQLRoles.db_datawriter));
-            if (!desiredprivs.Contains(eSQLRoles.db_ddladmin) && existingprivs.Contains(eSQLRoles.db_ddladmin))
-                pcl.Add((false, eSQLRoles.db_ddladmin));
-            if (!desiredprivs.Contains(eSQLRoles.db_denydatareader) && existingprivs.Contains(eSQLRoles.db_denydatareader))
-                pcl.Add((false, eSQLRoles.db_denydatareader));
-            if (!desiredprivs.Contains(eSQLRoles.db_denydatawriter) && existingprivs.Contains(eSQLRoles.db_denydatawriter))
-                pcl.Add((false, eSQLRoles.db_denydatawriter));
-            if (!desiredprivs.Contains(eSQLRoles.db_owner) && existingprivs.Contains(eSQLRoles.db_owner))
-                pcl.Add((false, eSQLRoles.db_owner));
-            if (!desiredprivs.Contains(eSQLRoles.db_securityadmin) && existingprivs.Contains(eSQLRoles.db_securityadmin))
-                pcl.Add((false, eSQLRoles.db_securityadmin));
-            if (!desiredprivs.Contains(eSQLRoles.sysadmin) && existingprivs.Contains(eSQLRoles.sysadmin))
-                pcl.Add((false, eSQLRoles.sysadmin));
-            if (!desiredprivs.Contains(eSQLRoles.diskadmin) && existingprivs.Contains(eSQLRoles.diskadmin))
-                pcl.Add((false, eSQLRoles.diskadmin));
-            if (!desiredprivs.Contains(eSQLRoles.bulkadmin) && existingprivs.Contains(eSQLRoles.bulkadmin))
-                pcl.Add((false, eSQLRoles.bulkadmin));
-            if (!desiredprivs.Contains(eSQLRoles.setupadmin) && existingprivs.Contains(eSQLRoles.setupadmin))
-                pcl.Add((false, eSQLRoles.setupadmin));
-            if (!desiredprivs.Contains(eSQLRoles.processadmin) && existingprivs.Contains(eSQLRoles.processadmin))
-                pcl.Add((false, eSQLRoles.processadmin));
-            if (!desiredprivs.Contains(eSQLRoles.serveradmin) && existingprivs.Contains(eSQLRoles.serveradmin))
-                pcl.Add((false, eSQLRoles.serveradmin));
-            if (!desiredprivs.Contains(eSQLRoles.dbcreator) && existingprivs.Contains(eSQLRoles.dbcreator))
-                pcl.Add((false, eSQLRoles.dbcreator));
-
-            return pcl;
-        }
-
-        /// <summary>
         /// Get Database Roles assigned to the given user.
         /// </summary>
-        /// <param name="user"></param>
         /// <param name="database"></param>
+        /// <param name="user"></param>
         /// <param name="roles"></param>
         /// <returns></returns>
-        public int Get_DatabaseRoles_for_User(string user, string database, out List<OGA.MSSQL.eSQLRoles> roles)
+        public int Get_DatabaseRoles_for_User(string database, string user, out List<OGA.MSSQL.eSQLRoles> roles)
         {
             roles = null;
 
@@ -3331,112 +3364,440 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
-        /// Get a list of all roles for the SQL Host.
+        /// Adds the given database role to database user.
+        /// Returns 1 on success, 1 if already set, negatives for errors.
         /// </summary>
-        /// <param name="roles"></param>
+        /// <param name="database"></param>
+        /// <param name="user"></param>
+        /// <param name="desiredrole"></param>
         /// <returns></returns>
-        public int Get_Roles_for_SQLHost(out List<OGA.MSSQL.Model.SQLHostRole_Assignment> roles)
+        public int Add_User_to_DatabaseRole(string database, string user, eSQLRoles desiredrole)
         {
-            System.Data.DataTable dt = null;
-            roles = null;
-
-            // Compose the query that will pull SQL Host roles.
-            string sql = @"SELECT
-                                roles.name AS ServerRoleName,
-	                            roles.sid AS [RoleSid],
-                                members.principal_id AS LoginPrincipalId,
-                                members.name AS LoginName,
-                                members.type_desc AS LoginType,
-                                roles.type_desc AS RoleType
-                            FROM sys.server_role_members AS rm
-                            JOIN sys.server_principals AS members
-                                ON rm.member_principal_id = members.principal_id
-                            JOIN sys.server_principals AS roles
-                                ON rm.role_principal_id = roles.principal_id
-                            ORDER BY members.name, roles.name;";
-
-            // Now, get the set of host roles...
             try
             {
-                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
-                    "Attempting to get host roles..."
-                        , _classname);
-
-                // Connect to the database...
-                if (!this.ConnectMasterDAL())
+                // Check that the user is is in the database users list already.
+                int res = this.Does_User_Exist_forDatabase(database, user);
+                if (res != 1)
                 {
-                    // Failed to connect to master.
+                    // Error occurred.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "User not found."
+                            , _classname);
+
+                    return -1;
+                }
+                // User exists.
+
+                if(desiredrole == eSQLRoles.none)
+                {
+                    // The desired roles is null.
+                    // We regard this as an error.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Desired roles cannot be null."
+                            , _classname);
+
+                    return -1;
+                }
+
+                // Get a list of database roles that the user currently has...
+                if (this.Get_DatabaseRoles_for_User(database, user, out var foundroles) != 1)
+                {
+                    // Failed to get database roles for the user.
+                    return -2;
+                }
+                // We have current database roles for the user.
+
+                // See if the role is already present...
+                if(foundroles.Any(m=>m == desiredrole))
+                {
+                    // Already present.
+                    // Nothing to do.
+                    return 1;
+                }
+
+                // Role to add.
+                string sql = $"ALTER ROLE [{desiredrole.ToString()}] ADD MEMBER [{user}];";
+                //string sql = $"ALTER ROLE [{desiredrole.ToString()}] DROP MEMBER [{user}];";
+
+                // This action requires a connection to the target database.
+                var dbdal = this.GetDatabaseDAL(database);
+                if(dbdal == null)
+                {
+                    // Failed to connect to target database.
 
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_Roles_for_SQLHost)} - " +
-                        $"Failed to connect to server.");
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Add_User_to_DatabaseRole)} - " +
+                        "Failed to connect to target database.");
 
                     return -1;
                 }
 
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
-                    "We can connect to the SQL Host."
+                    "Attempting to add database role for user..."
                         , _classname);
 
-                if (this._master_dal.Execute_Table_Query(sql, out dt) != 1)
+                // Execute the add database role command, to update the user's...
+                if (dbdal.Execute_NonQuery(sql).res != -1)
                 {
-                    // Failed to get roles for the SQL Host.
+                    // Failed to update database role.
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Failed to get roles for the SQL Host."
+                        "Failed to update database role."
                             , _classname);
 
                     return -2;
                 }
-                // We have a datatable of SQL Host roles.
-
-                // See if it contains anything.
-                if (dt.Rows.Count == 0)
-                {
-                    // No SQL Host roles are defined.
-                    // Return an error.
-
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Did not get any SQL Host roles. Something is wrong."
-                            , _classname);
-
-                    return -3;
-                }
-                // If here, we have SQL Host roles.
-
-                roles = new List<OGA.MSSQL.Model.SQLHostRole_Assignment>();
-
-                // Convert each result row to a database role instance.
-                foreach (System.Data.DataRow r in dt.Rows)
-                {
-                    OGA.MSSQL.Model.SQLHostRole_Assignment role = new OGA.MSSQL.Model.SQLHostRole_Assignment();
-
-                    role.GroupName = r["ServerRoleName"] + "";
-                    role.Login = r["LoginName"] + "";
-                    role.Principal_ID = r["LoginPrincipalId"] + "";
-                    role.RoleSID = r["RoleSid"] + "";
-
-                    roles.Add(role);
-                }
-                // If here, we got a list of SQL Host roles.
 
                 return 1;
             }
             catch (Exception e)
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
-                    "Exception occurred"
+                    "Exception occurred."
                     , _classname);
 
                 return -20;
             }
-            finally
+        }
+
+        /// <summary>
+        /// Removes the given database role from a database user.
+        /// Returns 1 on success, negatives for errors.
+        /// </summary>
+        /// <param name="database"></param>
+        /// <param name="user"></param>
+        /// <param name="desiredrole"></param>
+        /// <returns></returns>
+        public int Drop_User_from_DatabaseRole(string database, string user, eSQLRoles desiredrole)
+        {
+            try
             {
-                try
+                // Check that the user is is in the database users list already.
+                int res = this.Does_User_Exist_forDatabase(database, user);
+                if (res == 0)
                 {
-                    dt?.Dispose();
+                    // User doesn't exist in database.
+                    // So, it definitely doesn't have the role to be removed.
+
+                    // Return success..
+                    return 1;
                 }
-                catch (Exception) { }
+                else if (res < 0)
+                {
+                    // Failed to query for users.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to query for users."
+                            , _classname);
+
+                    return -1;
+                }
+                // User exists.
+
+                if(desiredrole == eSQLRoles.none)
+                {
+                    // The desired roles is null.
+                    // We regard this as an error.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Desired roles cannot be null."
+                            , _classname);
+
+                    return -1;
+                }
+
+                // Get a list of database roles that the user currently has...
+                if (this.Get_DatabaseRoles_for_User(database, user, out var foundroles) != 1)
+                {
+                    // Failed to get database roles for the user.
+                    return -2;
+                }
+                // We have current database roles for the user.
+
+                // See if the role is present...
+                if(!foundroles.Any(m=>m == desiredrole))
+                {
+                    // Not present.
+                    // Nothing to do.
+                    return 1;
+                }
+
+                // Role to remove.
+                //string sql = $"ALTER ROLE [{desiredrole.ToString()}] ADD MEMBER [{user}];";
+                string sql = $"ALTER ROLE [{desiredrole.ToString()}] DROP MEMBER [{user}];";
+
+                // This action requires a connection to the target database.
+                var dbdal = this.GetDatabaseDAL(database);
+                if(dbdal == null)
+                {
+                    // Failed to connect to target database.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Drop_User_from_DatabaseRole)} - " +
+                        "Failed to connect to target database.");
+
+                    return -1;
+                }
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "Attempting to remove database role from user..."
+                        , _classname);
+
+                // Execute the remove database role command, to update the user's...
+                if (dbdal.Execute_NonQuery(sql).res != -1)
+                {
+                    // Failed to update database role.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to update database role."
+                            , _classname);
+
+                    return -2;
+                }
+
+                return 1;
             }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred."
+                    , _classname);
+
+                return -20;
+            }
+        }
+
+        /// <summary>
+        /// Determines if the given database user has the given database role.
+        /// Returns 1 if true, 0 if not, negatives for errors.
+        /// </summary>
+        /// <param name="database"></param>
+        /// <param name="user"></param>
+        /// <param name="role"></param>
+        /// <returns></returns>
+        public int Does_User_Have_DatabaseRole(string database, string user, eSQLRoles role)
+        {
+            var resr = this.Get_DatabaseRoles_for_User(database, user, out var userroles);
+            if(resr != 1 || userroles == null)
+            {
+                // Failed to get roles for user.
+                return -1;
+            }
+
+            // Check if the user has the role...
+            if (userroles.Any(m => m == role))
+                return 1;
+            else
+                return 0;
+        }
+
+        /// <summary>
+        /// Sets the database roles for a user.
+        /// Returns 1 on success, 0 if already set, negatives for errors.
+        /// </summary>
+        /// <param name="database"></param>
+        /// <param name="user"></param>
+        /// <param name="desiredroles"></param>
+        /// <returns></returns>
+        public int Set_User_DatabaseRoles(string database, string user, List<eSQLRoles> desiredroles)
+        {
+            try
+            {
+                // First, see if the database exists...
+                if (Does_Database_Exist(database) != 1)
+                {
+                    // Database not present or can't access.
+                    return -1;
+                }
+
+                // Check that the user is is in the database.
+                int res = this.Does_User_Exist_forDatabase(database, user);
+                if (res != 1)
+                {
+                    // Error occurred.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "User not found."
+                            , _classname);
+
+                    return -1;
+                }
+                // User exists in database.
+
+                if(desiredroles == null)
+                {
+                    // The desired roles is null.
+                    // We regard this as an error.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Desired roles cannot be null."
+                            , _classname);
+
+                    return -1;
+                }
+                // We will reconcile user roles to match desired.
+
+                // Get a list of roles that the user currently has...
+                if (this.Get_DatabaseRoles_for_User(database, user, out var foundroles) != 1)
+                {
+                    // Failed to get database roles for the user.
+                    return -2;
+                }
+                // We have current database roles for the user.
+
+                // Reconcile the found database roles with desired...
+                // From the given set of database roles to expect for the user, and the current database roles for the user, we need to determine the list of ones to add and one to remove.
+                var pcl = DetermineRoleChanges(foundroles, desiredroles);
+                if(pcl.Count == 0)
+                {
+                    // No changes to make.
+                    return 1;
+                }
+
+                string sql = "";
+                string sqladd = "";
+                string sqlremove = "";
+
+                // Iterate the role change list, and compose the set of SQL instructions to execute...
+                foreach(var r in pcl)
+                {
+                    if(r.isgrant)
+                    {
+                        // Role to add.
+                        sqladd = sqladd + $"ALTER ROLE [{r.role.ToString()}] ADD MEMBER [{user}];";
+                    }
+                    else
+                    {
+                        // Role to remove.
+                        sqlremove = sqlremove + $"ALTER ROLE [{r.role.ToString()}] DROP MEMBER [{user}];";
+                    }
+                }
+
+                // Create a single sql command to run...
+                if(!string.IsNullOrWhiteSpace(sqladd))
+                    sql = sql + sqladd;
+                if(!string.IsNullOrWhiteSpace(sqlremove))
+                    sql = sql + sqlremove;
+
+                // At this point, we have a list of roles to add.
+
+                // This action requires a connection to the target database.
+                var dbdal = this.GetDatabaseDAL(database);
+                if(dbdal == null)
+                {
+                    // Failed to connect to target database.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Set_User_DatabaseRoles)} - " +
+                        "Failed to connect to target database.");
+
+                    return -1;
+                }
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "Attempting to add database roles for user..."
+                        , _classname);
+
+                // Execute the add and drop database role commands, to update the user's membership with desired...
+                if (dbdal.Execute_NonQuery(sql).res != -1)
+                {
+                    // Failed to update database roles.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to update database roles."
+                            , _classname);
+
+                    return -2;
+                }
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred."
+                    , _classname);
+
+                return -20;
+            }
+        }
+
+        /// <summary>
+        /// Determines the net changes between two given sets of roles.
+        /// Used by logic that updates user and login roles as required.
+        /// </summary>
+        /// <param name="existingprivs"></param>
+        /// <param name="desiredprivs"></param>
+        /// <returns></returns>
+        static public List<(bool isgrant, eSQLRoles role)> DetermineRoleChanges(List<eSQLRoles> existingprivs, List<eSQLRoles> desiredprivs)
+        {
+            var pcl = new List<(bool isgrant, eSQLRoles priv)>();
+
+            // Figure out desiredprivs to add...
+            if (desiredprivs.Contains(eSQLRoles.db_accessadmin) && !existingprivs.Contains(eSQLRoles.db_accessadmin))
+                pcl.Add((true, eSQLRoles.db_accessadmin));
+            if (desiredprivs.Contains(eSQLRoles.db_backupoperator) && !existingprivs.Contains(eSQLRoles.db_backupoperator))
+                pcl.Add((true, eSQLRoles.db_backupoperator));
+            if (desiredprivs.Contains(eSQLRoles.db_datareader) && !existingprivs.Contains(eSQLRoles.db_datareader))
+                pcl.Add((true, eSQLRoles.db_datareader));
+            if (desiredprivs.Contains(eSQLRoles.db_datawriter) && !existingprivs.Contains(eSQLRoles.db_datawriter))
+                pcl.Add((true, eSQLRoles.db_datawriter));
+            if (desiredprivs.Contains(eSQLRoles.db_ddladmin) && !existingprivs.Contains(eSQLRoles.db_ddladmin))
+                pcl.Add((true, eSQLRoles.db_ddladmin));
+            if (desiredprivs.Contains(eSQLRoles.db_denydatareader) && !existingprivs.Contains(eSQLRoles.db_denydatareader))
+                pcl.Add((true, eSQLRoles.db_denydatareader));
+            if (desiredprivs.Contains(eSQLRoles.db_denydatawriter) && !existingprivs.Contains(eSQLRoles.db_denydatawriter))
+                pcl.Add((true, eSQLRoles.db_denydatawriter));
+            if (desiredprivs.Contains(eSQLRoles.db_owner) && !existingprivs.Contains(eSQLRoles.db_owner))
+                pcl.Add((true, eSQLRoles.db_owner));
+            if (desiredprivs.Contains(eSQLRoles.db_securityadmin) && !existingprivs.Contains(eSQLRoles.db_securityadmin))
+                pcl.Add((true, eSQLRoles.db_securityadmin));
+            if (desiredprivs.Contains(eSQLRoles.sysadmin) && !existingprivs.Contains(eSQLRoles.sysadmin))
+                pcl.Add((true, eSQLRoles.sysadmin));
+            if (desiredprivs.Contains(eSQLRoles.diskadmin) && !existingprivs.Contains(eSQLRoles.diskadmin))
+                pcl.Add((true, eSQLRoles.diskadmin));
+            if (desiredprivs.Contains(eSQLRoles.bulkadmin) && !existingprivs.Contains(eSQLRoles.bulkadmin))
+                pcl.Add((true, eSQLRoles.bulkadmin));
+            if (desiredprivs.Contains(eSQLRoles.setupadmin) && !existingprivs.Contains(eSQLRoles.setupadmin))
+                pcl.Add((true, eSQLRoles.setupadmin));
+            if (desiredprivs.Contains(eSQLRoles.processadmin) && !existingprivs.Contains(eSQLRoles.processadmin))
+                pcl.Add((true, eSQLRoles.processadmin));
+            if (desiredprivs.Contains(eSQLRoles.serveradmin) && !existingprivs.Contains(eSQLRoles.serveradmin))
+                pcl.Add((true, eSQLRoles.serveradmin));
+            if (desiredprivs.Contains(eSQLRoles.dbcreator) && !existingprivs.Contains(eSQLRoles.dbcreator))
+                pcl.Add((true, eSQLRoles.dbcreator));
+
+            // Figure out privileges to remove...
+            if (!desiredprivs.Contains(eSQLRoles.db_accessadmin) && existingprivs.Contains(eSQLRoles.db_accessadmin))
+                pcl.Add((false, eSQLRoles.db_accessadmin));
+            if (!desiredprivs.Contains(eSQLRoles.db_backupoperator) && existingprivs.Contains(eSQLRoles.db_backupoperator))
+                pcl.Add((false, eSQLRoles.db_backupoperator));
+            if (!desiredprivs.Contains(eSQLRoles.db_datareader) && existingprivs.Contains(eSQLRoles.db_datareader))
+                pcl.Add((false, eSQLRoles.db_datareader));
+            if (!desiredprivs.Contains(eSQLRoles.db_datawriter) && existingprivs.Contains(eSQLRoles.db_datawriter))
+                pcl.Add((false, eSQLRoles.db_datawriter));
+            if (!desiredprivs.Contains(eSQLRoles.db_ddladmin) && existingprivs.Contains(eSQLRoles.db_ddladmin))
+                pcl.Add((false, eSQLRoles.db_ddladmin));
+            if (!desiredprivs.Contains(eSQLRoles.db_denydatareader) && existingprivs.Contains(eSQLRoles.db_denydatareader))
+                pcl.Add((false, eSQLRoles.db_denydatareader));
+            if (!desiredprivs.Contains(eSQLRoles.db_denydatawriter) && existingprivs.Contains(eSQLRoles.db_denydatawriter))
+                pcl.Add((false, eSQLRoles.db_denydatawriter));
+            if (!desiredprivs.Contains(eSQLRoles.db_owner) && existingprivs.Contains(eSQLRoles.db_owner))
+                pcl.Add((false, eSQLRoles.db_owner));
+            if (!desiredprivs.Contains(eSQLRoles.db_securityadmin) && existingprivs.Contains(eSQLRoles.db_securityadmin))
+                pcl.Add((false, eSQLRoles.db_securityadmin));
+            if (!desiredprivs.Contains(eSQLRoles.sysadmin) && existingprivs.Contains(eSQLRoles.sysadmin))
+                pcl.Add((false, eSQLRoles.sysadmin));
+            if (!desiredprivs.Contains(eSQLRoles.diskadmin) && existingprivs.Contains(eSQLRoles.diskadmin))
+                pcl.Add((false, eSQLRoles.diskadmin));
+            if (!desiredprivs.Contains(eSQLRoles.bulkadmin) && existingprivs.Contains(eSQLRoles.bulkadmin))
+                pcl.Add((false, eSQLRoles.bulkadmin));
+            if (!desiredprivs.Contains(eSQLRoles.setupadmin) && existingprivs.Contains(eSQLRoles.setupadmin))
+                pcl.Add((false, eSQLRoles.setupadmin));
+            if (!desiredprivs.Contains(eSQLRoles.processadmin) && existingprivs.Contains(eSQLRoles.processadmin))
+                pcl.Add((false, eSQLRoles.processadmin));
+            if (!desiredprivs.Contains(eSQLRoles.serveradmin) && existingprivs.Contains(eSQLRoles.serveradmin))
+                pcl.Add((false, eSQLRoles.serveradmin));
+            if (!desiredprivs.Contains(eSQLRoles.dbcreator) && existingprivs.Contains(eSQLRoles.dbcreator))
+                pcl.Add((false, eSQLRoles.dbcreator));
+
+            return pcl;
         }
 
         #endregion
@@ -3533,6 +3894,149 @@ namespace OGA.MSSQL
         }
 
         /// <summary>
+        /// Gets the row count for each table in the database the user connects to.
+        /// </summary>
+        /// <param name="database"></param>
+        /// <param name="rowdata"></param>
+        /// <returns></returns>
+        public int Get_RowCount_for_Tables(string database, out List<KeyValuePair<string, int>> rowdata)
+        {
+            /* This method implements the following sql query:
+             * SELECT
+                 SCHEMA_NAME(schema_id) AS [SchemaName]
+                ,[Tables].name AS [TableName]
+                ,SUM([Partitions].[rows]) AS [TotalRowCount]
+                FROM sys.tables AS [Tables]
+                JOIN sys.partitions AS [Partitions]
+                ON [Tables].[object_id] = [Partitions].[object_id]
+                AND [Partitions].index_id IN ( 0, 1 )
+                -- WHERE [Tables].name = N'name of the table'
+                GROUP BY SCHEMA_NAME(schema_id), [Tables].name
+             */
+
+            System.Data.DataTable dt = null;
+            rowdata = null;
+
+            try
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
+                    "Attempting to get table row counts for database {1}..."
+                        , _classname, database);
+
+                // This action requires a connection to the target database.
+                var dbdal = this.GetDatabaseDAL(database);
+                if(dbdal == null)
+                {
+                    // Failed to connect to target database.
+
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_RowCount_for_Tables)} - " +
+                        "Failed to connect to target database.");
+
+                    return -1;
+                }
+
+                // Compose the sql query we will perform.
+                string sql = "SELECT SCHEMA_NAME(schema_id) AS[SchemaName],[Tables].name AS[TableName],SUM([Partitions].[rows]) AS[TotalRowCount] " +
+                    "FROM sys.tables AS [Tables] JOIN sys.partitions AS [Partitions] ON [Tables].[object_id] = [Partitions].[object_id] AND [Partitions].index_id IN ( 0, 1 ) " +
+                    "GROUP BY SCHEMA_NAME(schema_id), [Tables].name";
+
+                if (dbdal.Execute_Table_Query(sql, out dt) != 1)
+                {
+                    // Failed to get row counts from the database.
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                        "Failed to get row counts from the database."
+                            , _classname);
+
+                    return -2;
+                }
+                // We have a datatable of row counts.
+
+                // Turn them into a list.
+                rowdata = new List<KeyValuePair<string, int>>();
+                foreach (System.Data.DataRow r in dt.Rows)
+                {
+                    // Get the table name.
+                    string tablename = r["TableName"].ToString() + "";
+                    int tablesize = 0;
+
+                    // Get the table size.
+                    try
+                    {
+                        string tempval = r["TotalRowCount"].ToString() + "";
+                        tablesize = Convert.ToInt32(tempval);
+                    }
+                    catch (Exception e)
+                    {
+                        // An exception occurred while parsing in table row size data.
+                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                            "An exception occurred while parsing in table row size data for database {1}."
+                                , _classname, database);
+
+                        return -4;
+                    }
+                    KeyValuePair<string, int> vv = new KeyValuePair<string, int>(tablename, tablesize);
+                    rowdata.Add(vv);
+                }
+                // If here, we have iterated all rows, and can return to the caller.
+
+                return 1;
+            }
+            catch (Exception e)
+            {
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred"
+                    , _classname, database);
+
+                return -20;
+            }
+            finally
+            {
+                try
+                {
+                    dt?.Dispose();
+                }
+                catch (Exception) { }
+            }
+        }
+
+        /// <summary>
+        /// Returns zero or positive for row count, negatives for errors.
+        /// </summary>
+        /// <param name="database"></param>
+        /// <param name="tablename"></param>
+        /// <returns></returns>
+        public int Get_TableSize(string database,string tablename)
+        {
+            if (this.Get_RowCount_for_Tables(database, out var rowdata) != 1)
+            {
+                // Failed to get table row count data.
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
+                    "Failed to get table row count data."
+                        , _classname);
+
+                return -1;
+            }
+            // We have a list of table row sizes to filter down.
+
+            try
+            {
+                int val = rowdata.FirstOrDefault(m => m.Key.ToUpper() == tablename.ToUpper()).Value;
+
+                return val;
+            }
+            catch (Exception e)
+            {
+                // Failed to get table row count data.
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
+                    "Exception occurred while getting table row count data."
+                        , _classname);
+
+                return -1;
+            }
+        }
+
+        /// <summary>
         /// Returns 1 if found, 0 if not, negatives for errors.
         /// </summary>
         /// <param name="database"></param>
@@ -3622,42 +4126,6 @@ namespace OGA.MSSQL
                     dt?.Dispose();
                 }
                 catch (Exception) { }
-            }
-        }
-
-        /// <summary>
-        /// Returns zero or positive for row count, negatives for errors.
-        /// </summary>
-        /// <param name="database"></param>
-        /// <param name="tablename"></param>
-        /// <returns></returns>
-        public int Get_TableSize(string database,string tablename)
-        {
-            if (this.Get_RowCount_for_Tables(database, out var rowdata) != 1)
-            {
-                // Failed to get table row count data.
-                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                    "Failed to get table row count data."
-                        , _classname);
-
-                return -1;
-            }
-            // We have a list of table row sizes to filter down.
-
-            try
-            {
-                int val = rowdata.FirstOrDefault(m => m.Key.ToUpper() == tablename.ToUpper()).Value;
-
-                return val;
-            }
-            catch (Exception e)
-            {
-                // Failed to get table row count data.
-                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
-                    "Exception occurred while getting table row count data."
-                        , _classname);
-
-                return -1;
             }
         }
 
@@ -4044,127 +4512,6 @@ namespace OGA.MSSQL
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
                     $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
                     "Exception occurred");
-
-                return -20;
-            }
-            finally
-            {
-                try
-                {
-                    dt?.Dispose();
-                }
-                catch (Exception) { }
-            }
-        }
-
-        /// <summary>
-        /// Gets the row count for each table in the database the user connects to.
-        /// </summary>
-        /// <param name="database"></param>
-        /// <param name="rowdata"></param>
-        /// <returns></returns>
-        public int Get_RowCount_for_Tables(string database, out List<KeyValuePair<string, int>> rowdata)
-        {
-            /* This method implements the following sql query:
-             * SELECT
-                 SCHEMA_NAME(schema_id) AS [SchemaName]
-                ,[Tables].name AS [TableName]
-                ,SUM([Partitions].[rows]) AS [TotalRowCount]
-                FROM sys.tables AS [Tables]
-                JOIN sys.partitions AS [Partitions]
-                ON [Tables].[object_id] = [Partitions].[object_id]
-                AND [Partitions].index_id IN ( 0, 1 )
-                -- WHERE [Tables].name = N'name of the table'
-                GROUP BY SCHEMA_NAME(schema_id), [Tables].name
-             */
-
-            System.Data.DataTable dt = null;
-            rowdata = null;
-
-            try
-            {
-                OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
-                    "Attempting to get table row counts for database {1}..."
-                        , _classname, database);
-
-                // This action requires a connection to the target database.
-                var dbdal = this.GetDatabaseDAL(database);
-                if(dbdal == null)
-                {
-                    // Failed to connect to target database.
-
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_RowCount_for_Tables)} - " +
-                        "Failed to connect to target database.");
-
-                    return -1;
-                }
-
-                // Compose the sql query we will perform.
-                string sql = "SELECT SCHEMA_NAME(schema_id) AS[SchemaName],[Tables].name AS[TableName],SUM([Partitions].[rows]) AS[TotalRowCount] " +
-                    "FROM sys.tables AS [Tables] JOIN sys.partitions AS [Partitions] ON [Tables].[object_id] = [Partitions].[object_id] AND [Partitions].index_id IN ( 0, 1 ) " +
-                    "GROUP BY SCHEMA_NAME(schema_id), [Tables].name";
-
-                if (dbdal.Execute_Table_Query(sql, out dt) != 1)
-                {
-                    // Failed to get row counts from the database.
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Failed to get row counts from the database."
-                            , _classname);
-
-                    return -2;
-                }
-                // We have a datatable of row counts.
-
-                // See if it contains anything.
-                if (dt.Rows.Count == 0)
-                {
-                    // No tables in the database.
-                    // Return an error.
-
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Did not get any row counts for database{1}. Database name might be wrong."
-                            , _classname, database);
-
-                    return -3;
-                }
-                // If here, we have row counts for the database.
-
-                // Turn them into a list.
-                rowdata = new List<KeyValuePair<string, int>>();
-                foreach (System.Data.DataRow r in dt.Rows)
-                {
-                    // Get the table name.
-                    string tablename = r["TableName"].ToString() + "";
-                    int tablesize = 0;
-
-                    // Get the table size.
-                    try
-                    {
-                        string tempval = r["TotalRowCount"].ToString() + "";
-                        tablesize = Convert.ToInt32(tempval);
-                    }
-                    catch (Exception e)
-                    {
-                        // An exception occurred while parsing in table row size data.
-                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
-                            "An exception occurred while parsing in table row size data for database {1}."
-                                , _classname, database);
-
-                        return -4;
-                    }
-                    KeyValuePair<string, int> vv = new KeyValuePair<string, int>(tablename, tablesize);
-                    rowdata.Add(vv);
-                }
-                // If here, we have iterated all rows, and can return to the caller.
-
-                return 1;
-            }
-            catch (Exception e)
-            {
-                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e, "{0}: " +
-                    "Exception occurred"
-                    , _classname, database);
 
                 return -20;
             }
@@ -4663,7 +5010,7 @@ namespace OGA.MSSQL
         }
 
 
-        private int priv_AddUsertoDatabase(string username, string database)
+        private int priv_AddUsertoDatabase(string database, string username)
         {
             try
             {
