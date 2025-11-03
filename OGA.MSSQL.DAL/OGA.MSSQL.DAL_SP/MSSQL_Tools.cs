@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.ResponseCompression;
+﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.ResponseCompression;
 using Mono.Posix;
 using Mono.Unix.Native;
+using Newtonsoft.Json.Serialization;
 using NLog.LayoutRenderers;
 using OGA.MSSQL.DAL;
 using OGA.MSSQL.DAL.CreateVerify.Model;
@@ -4019,6 +4021,13 @@ namespace OGA.MSSQL
             }
             // We have a list of table row sizes to filter down.
 
+            if(rowdata.Count == 0)
+            {
+                // No tables present.
+                // No way to have the desired table.
+                return -1;
+            }
+
             try
             {
                 int val = rowdata.FirstOrDefault(m => m.Key.ToUpper() == tablename.ToUpper()).Value;
@@ -4083,15 +4092,8 @@ namespace OGA.MSSQL
                 if (dt.Rows.Count == 0)
                 {
                     // No tables in the database.
-                    // Or, the database doesn't exist.
-                    // Quite likely, the database name is wrong.
-                    // Return an error.
 
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Did not get any tables for database {1}. Table name might be wrong."
-                            , _classname, database);
-
-                    return -3;
+                    return 0;
                 }
                 // If here, we have tables for the database.
 
@@ -4216,6 +4218,15 @@ namespace OGA.MSSQL
                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
                         $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
                         $"Empty table name.");
+
+                    return -1;
+                }
+
+                if (tabledef.ColumnCount == 0)
+                {
+                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Create_Table)} - " +
+                        $"Empty table definition.");
 
                     return -1;
                 }
@@ -4361,7 +4372,7 @@ namespace OGA.MSSQL
                 }
 
                 // Check if the table is still present on the server.
-                if (this.DoesTableExist(database, tableName) != 1)
+                if (this.DoesTableExist(database, tableName) != 0)
                 {
                     // The table was not dropped as expected.
 
@@ -4397,7 +4408,7 @@ namespace OGA.MSSQL
         public int Get_PrimaryKeyConstraints_forTable(string database, string tableName, out List<PriKeyConstraint> pklist)
         {
             System.Data.DataTable dt = null;
-            pklist = new List<PriKeyConstraint>();
+            pklist = null;
 
             try
             {
@@ -4476,9 +4487,22 @@ namespace OGA.MSSQL
                     // No primary keys in the table.
                     // Or, the table doesn't exist.
 
+                    // Verify the table exists...
+                    var restb = this.DoesTableExist(database, tableName);
+                    if (restb != 1)
+                    {
+                        // Table doesn't exist.
+                        // That's why our key list query returned nothing.
+
+                        return 0;
+                    }
+
+                    pklist = new List<PriKeyConstraint>();
                     return 1;
                 }
                 // If here, we have primary keys for the table.
+
+                pklist = new List<PriKeyConstraint>();
 
                 // Convert the raw list to our type...
                 foreach (System.Data.DataRow r in dt.Rows)
@@ -4574,21 +4598,27 @@ namespace OGA.MSSQL
                 // See if it contains anything.
                 if (dt.Rows.Count == 0)
                 {
-                    // No columns in the table.
+                    // No column in the table.
                     // Or, the table doesn't exist.
-                    // Quite likely, the table name is wrong.
-                    // Return an error.
 
-                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error("{0}: " +
-                        "Did not get any columns for table {1}. Table name might be wrong."
-                            , _classname, tablename);
+                    // Verify the table exists...
+                    var restable = this.DoesTableExist(database, tablename);
+                    if (restable != 1)
+                    {
+                        // Table doesn't exist.
+                        // That's why our column list query returned nothing.
 
-                    return -3;
+                        return 0;
+                    }
+
+                    ColumnNames = new List<string>();
+                    return 1;
                 }
                 // If here, we have columns for the table.
 
-                // Turn them into a list.
                 ColumnNames = new List<string>();
+
+                // Turn them into a list.
                 foreach (System.Data.DataRow r in dt.Rows)
                 {
                     ColumnNames.Add(r[0] + "");
@@ -4627,7 +4657,7 @@ namespace OGA.MSSQL
         public int Get_ColumnInfo_forTable(string database, string tableName, out List<ColumnInfo> columnlist)
         {
             System.Data.DataTable dt = null;
-            columnlist = new List<ColumnInfo>();
+            columnlist = null;
 
             try
             {
@@ -4658,38 +4688,76 @@ namespace OGA.MSSQL
                 }
 
                 // Compose the sql query we will perform.
-                string sql = "SELECT DB_NAME() AS table_catalog, " +
-                             "s.name AS table_schema, " +
-                             "t.name AS table_name, " +
-                             "c.column_id AS ordinal_position, " +
-                             "c.name AS column_name, " +
-                             "TYPE_NAME(c.user_type_id) AS data_type, " +
-                             "CASE " +
-                             "    WHEN TYPE_NAME(c.user_type_id) like 'nvarchar' THEN (c.max_length / 2)" +
-                             "    WHEN TYPE_NAME(c.user_type_id) like '%char' THEN c.max_length " +
-                             "    WHEN TYPE_NAME(c.user_type_id) = 'text' THEN c.max_length " +
-                             "    ELSE null " +
-                             "END AS character_maximum_length, " +
-                             "c.max_length AS character_maximum_length, " +
-                             "c.precision, " +
-                             "c.scale, " +
-                             "c.is_nullable, " +
-                             "c.is_identity, " +
-                             "ic.seed_value, " +
-                             "ic.increment_value, " +
-                             "ic.last_value, " +
-                             "CASE " +
-                             "    WHEN c.is_identity = 1 THEN 'BY DEFAULT' " +
-                             "    ELSE NULL " +
-                             "END AS identity_generation " +
-                             "FROM sys.columns AS c " +
-                             "JOIN sys.tables  AS t ON c.object_id = t.object_id " +
-                             "JOIN sys.schemas AS s ON t.schema_id = s.schema_id " +
-                             "LEFT JOIN sys.identity_columns AS ic  " +
-                             "ON c.object_id = ic.object_id AND c.column_id = ic.column_id " +
-                             "WHERE t.name = '" + tableName + "' " +
-                             //"AND s.name = 'dbo' " +
-                             "ORDER BY c.column_id;";
+                //string sql = "SELECT DB_NAME() AS table_catalog, " +
+                //             "s.name AS table_schema, " +
+                //             "t.name AS table_name, " +
+                //             "c.column_id AS ordinal_position, " +
+                //             "c.name AS column_name, " +
+                //             "TYPE_NAME(c.user_type_id) AS data_type, " +
+                //             "CASE " +
+                //             "    WHEN TYPE_NAME(c.user_type_id) like 'nvarchar' THEN (c.max_length / 2)" +
+                //             "    WHEN TYPE_NAME(c.user_type_id) like '%char' THEN c.max_length " +
+                //             "    WHEN TYPE_NAME(c.user_type_id) = 'text' THEN c.max_length " +
+                //             "    ELSE null " +
+                //             "END AS character_maximum_length, " +
+                //             "c.max_length AS character_maximum_length, " +
+                //             "c.precision, " +
+                //             "c.scale, " +
+                //             "c.is_nullable, " +
+                //             "c.is_identity, " +
+                //             "ic.seed_value, " +
+                //             "ic.increment_value, " +
+                //             "ic.last_value, " +
+                //             "CASE " +
+                //             "    WHEN c.is_identity = 1 THEN 'BY DEFAULT' " +
+                //             "    ELSE NULL " +
+                //             "END AS identity_generation " +
+                //             "FROM sys.columns AS c " +
+                //             "JOIN sys.tables  AS t ON c.object_id = t.object_id " +
+                //             "JOIN sys.schemas AS s ON t.schema_id = s.schema_id " +
+                //             "LEFT JOIN sys.identity_columns AS ic  " +
+                //             "ON c.object_id = ic.object_id AND c.column_id = ic.column_id " +
+                //             "WHERE t.name = '" + tableName + "' " +
+                //             //"AND s.name = 'dbo' " +
+                //             "ORDER BY c.column_id;";
+
+                // This updated query includes details about default constraints, in case the column has a sequence generation method, like a UUID or string column would use.
+                string sql = $@"SELECT 
+                                DB_NAME() AS table_catalog,
+                                s.name AS table_schema,
+                                t.name AS table_name,
+                                c.column_id AS ordinal_position,
+                                c.name AS column_name,
+                                TYPE_NAME(c.user_type_id) AS data_type,
+                                CASE 
+                                    WHEN TYPE_NAME(c.user_type_id) LIKE 'nvarchar' THEN (c.max_length / 2)
+                                    WHEN TYPE_NAME(c.user_type_id) LIKE '%char' THEN c.max_length
+                                    WHEN TYPE_NAME(c.user_type_id) = 'text' THEN c.max_length
+                                    ELSE NULL
+                                END AS character_maximum_length,
+                                c.max_length AS character_maximum_length_raw,
+                                c.precision,
+                                c.scale,
+                                c.is_nullable,
+                                c.is_identity,
+                                ic.seed_value,
+                                ic.increment_value,
+                                ic.last_value,
+                                CASE 
+                                    WHEN c.is_identity = 1 THEN 'BY DEFAULT'
+                                    ELSE NULL
+                                END AS identity_generation,
+                                dc.name AS default_constraint_name,
+                                dc.definition AS default_definition
+                            FROM sys.columns AS c
+                            JOIN sys.tables  AS t ON c.object_id = t.object_id
+                            JOIN sys.schemas AS s ON t.schema_id = s.schema_id
+                            LEFT JOIN sys.identity_columns AS ic
+                                ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+                            LEFT JOIN sys.default_constraints AS dc
+                                ON c.default_object_id = dc.object_id
+                            WHERE t.name = '{tableName}'
+                            ORDER BY t.name, c.column_id;";
 
                 if (dbdal.Execute_Table_Query(sql, out dt) != 1)
                 {
@@ -4718,9 +4786,12 @@ namespace OGA.MSSQL
                         return 0;
                     }
 
+                    columnlist = new List<ColumnInfo>();
                     return 1;
                 }
                 // If here, we have columns for the table.
+
+                columnlist = new List<ColumnInfo>();
 
                 foreach (System.Data.DataRow r in dt.Rows)
                 {
@@ -4814,13 +4885,69 @@ namespace OGA.MSSQL
                             return -22;
                         }
 
+                        // See if it is claimed as identity...
                         if (!isidentity)
                         {
-                            ct.isIdentity = false;
-                            ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                            // It might not be identity, or might be a default generated identity... generated by a method.
+
+                            var resig = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "default_constraint_name", out string defconstraintname);
+                            if (resig < 0)
+                            {
+                                // Failed to get default_constraint_name column value.
+
+                                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                                    $"Failed to get default_constraint_name column value.");
+
+                                return -22;
+                            }
+                            else if(resig == 0 && string.IsNullOrEmpty(defconstraintname))
+                            {
+                                // Not a default generated identity column.
+
+                                ct.isIdentity = false;
+                                ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                            }
+                            else if(resig == 1 && !string.IsNullOrEmpty(defconstraintname))
+                            {
+                                // Has a default constraint.
+
+                                // Get its default constraint...
+                                var resdc = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "default_definition", out string defconstraint);
+                                if (resig < 0)
+                                {
+                                    // Failed to get default_definition column value.
+
+                                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                                        $"Failed to get default_definition column value.");
+
+                                    return -22;
+                                }
+                                else if(resig == 1 && defconstraint == "(newsequentialid())")
+                                {
+                                    // Is a default generated constraint.
+
+                                    ct.isIdentity = false;
+                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.GenerateByDefault;
+                                }
+                                else
+                                {
+                                    // Not a default generated identity column.
+
+                                    ct.isIdentity = false;
+                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                                }
+                            }
+                            else
+                            {
+                                ct.isIdentity = false;
+                                ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                            }
                         }
                         else
                         {
+                            // Database reports column is identity.
                             ct.isIdentity = true;
 
                             // Get the identity behavior...
@@ -4828,9 +4955,9 @@ namespace OGA.MSSQL
                             {
                                 string ib = ((string)r["identity_generation"]) ?? "";
                                 if (ib == "BY DEFAULT")
-                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.GenerateByDefault;
-                                else
-                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways;
+                                //else
+                                //    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
                             }
                             catch (Exception e)
                             {

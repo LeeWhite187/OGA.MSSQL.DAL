@@ -23,6 +23,11 @@ namespace OGA.MSSQL.DAL
         /// </summary>
         public bool Cfg_IncludeDrop_IfExists { get; set; } = false;
 
+        /// <summary>
+        /// Number of defined columns in table definition.
+        /// </summary>
+        public int ColumnCount { get => this.columnlist?.Count ?? 0; }
+
 
         public TableDefinition(string tablename)
         {
@@ -123,16 +128,30 @@ namespace OGA.MSSQL.DAL
                 cd.ColType = SQL_Datatype_Names.CONST_SQL_nvarchar + $"({varcharlength.Value.ToString()})";
             }
 
-            // Set identity behavior clause...
-            // We ignore it for invalid types.
-            if(datatype == ePkColTypes.bigint ||
-                datatype == ePkColTypes.integer  ||
-                datatype == ePkColTypes.uuid)
+            // Set identity behavior...
             {
-                // Datatype is valid for identity behavior usage.
+                // Start as unset, and update below if required...
+                cd.IdentityBehavior = eIdentityBehavior.UNSET;
 
-                if (identitybehavior == eIdentityBehavior.GenerateByDefault)
-                    cd.IdentityBehavior = eIdentityBehavior.GenerateByDefault;
+                // Set identity behavior clause...
+                // We ignore it for invalid types.
+                if(datatype == ePkColTypes.bigint ||
+                    datatype == ePkColTypes.integer)
+                {
+                    // Numeric datatypes are valid for identity behavior usage.
+
+                    if (identitybehavior == eIdentityBehavior.GenerateByDefault)
+                        cd.IdentityBehavior = eIdentityBehavior.GenerateByDefault;
+                    if (identitybehavior == eIdentityBehavior.GenerateAlways)
+                        cd.IdentityBehavior = eIdentityBehavior.GenerateAlways;
+                }
+                else if(datatype == ePkColTypes.uuid)
+                {
+                    // UUID datatype is valid for default value generation.
+
+                    if (identitybehavior == eIdentityBehavior.GenerateByDefault)
+                        cd.IdentityBehavior = eIdentityBehavior.GenerateByDefault;
+                }
             }
 
             this.columnlist.Add(cd);
@@ -305,7 +324,8 @@ namespace OGA.MSSQL.DAL
                     if(pkc != null)
                     {
                         // Build a constraint string for it...
-                        b.AppendLine(indent + $"\tCONSTRAINT [PK_{this.tablename}] PRIMARY KEY ([{pkc.ColName}])");
+                        // Be sure to add a leading comma to it, since it comes after the column list, but is still in the block where the column list goes.
+                        b.AppendLine(indent + $"\t, CONSTRAINT [PK_{this.tablename}] PRIMARY KEY ([{pkc.ColName}])");
                     }
                 } catch(Exception) { }
             }

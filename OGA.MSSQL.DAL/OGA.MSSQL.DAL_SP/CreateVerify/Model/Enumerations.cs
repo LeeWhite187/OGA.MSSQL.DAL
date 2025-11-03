@@ -137,8 +137,15 @@ namespace OGA.MSSQL.DAL.CreateVerify.Model
         UNSET = 0,
         /// <summary>
         /// The column will be auto-generated if no user value was specified on INSERT.
+        /// This is valid for a UUID column type.
         /// </summary>
         GenerateByDefault = 1,
+        /// <summary>
+        /// The column will be auto-generated on INSERT.
+        /// If the user's insert specifies a value, an error will be generated.
+        /// This is valid for numeric types: bigint, integer, etc.
+        /// </summary>
+        GenerateAlways = 2,
     }
 
     public enum eAccessMode

@@ -13,6 +13,7 @@ using System.Linq;
 using OGA.MSSQL.DAL.Model;
 using OGA.MSSQL.DAL_SP.Model;
 using OGA.MSSQL.DAL_SP_Tests.Helpers;
+using System.Security.Cryptography;
 
 namespace OGA.MSSQL_Tests
 {
@@ -31,21 +32,25 @@ namespace OGA.MSSQL_Tests
         //  Test_1_3_3  Verify that Get_RowCount_for_Tables() returns a list of zeroes for a database with empty tables in it.
         //  Test_1_3_4  Verify that Get_RowCount_for_Tables() returns the list of rows added to a database with tables with test data rows.
 
-CREATE TESTS FROM HERE DOWN...
-
         //  Test_1_4_1  Verify that Get_TableSize() returns a -1 for a missing database.
         //  Test_1_4_2  Verify that Get_TableSize() returns a -1 for a missing table.
         //  Test_1_4_3  Verify that Get_TableSize() returns a positive value for a database with a table containing sample data.
+        //  Test_1_4_4  Verify that Get_TableSize() returns a -1 for a missing table, in a database with at least one table.
      
         //  Test_1_5_1  Verify that Is_Table_in_Database() returns a -1 for a missing database.
         //  Test_1_5_2  Verify that Is_Table_in_Database() returns a 0 for a missing table name.
+        //  Test_1_5_3  Verify that Is_Table_in_Database() returns a 1 for a valid table name.
+        //  Test_1_5_4  Verify that Is_Table_in_Database() returns a 0 for a missing table name, in a database with at least one table.
 
         //  Test_1_6_1  Verify that DoesTableExist() returns a -1 for a missing database.
         //  Test_1_6_2  Verify that DoesTableExist() returns a 0 for a missing table name.
+        //  Test_1_6_3  Verify that DoesTableExist() returns a 1 for a valid table name.
+        //  Test_1_6_4  Verify that DoesTableExist() returns a 0 for a missing table name, in a database with at least one table.
 
         //  Test_1_7_1  Verify that Create_Table() returns a -1 for a missing database.
-        //  Test_1_7_2  Verify that Create_Table() returns a -2 for a bad table definition.
+        //  Test_1_7_2  Verify that Create_Table() returns a -1 for a null table definition.
         //  Test_1_7_3  Verify that Create_Table() successfully created a database table for a given table definition.
+        //  Test_1_7_4  Verify that Create_Table() returns a 1 if the table name already exists.
 
         //  Test_1_8_1  Verify that Drop_Table() returns a -1 for a missing database.
         //  Test_1_8_2  Verify that Drop_Table() returns success if the table is not present.
@@ -53,28 +58,24 @@ CREATE TESTS FROM HERE DOWN...
 
         //  Test_2_1_1  Verify that Get_PrimaryKeyConstraints_forTable() returns a -1 for a missing database.
         //  Test_2_1_2  Verify that Get_PrimaryKeyConstraints_forTable() returns a 0 for a missing table.
-        //  Test_2_1_3  Verify that Get_PrimaryKeyConstraints_forTable() returns an empty list of key constraints for a table with no columns.
-        //  Test_2_1_4  Verify that Get_PrimaryKeyConstraints_forTable() returns an empty list of key constraints for a table with columns, but no defined primary key.
-        //  Test_2_1_5  Verify that Get_PrimaryKeyConstraints_forTable() returns a list of key constraints for a table with columns, but one primary key.
+        //  Test_2_1_3  Verify that Get_PrimaryKeyConstraints_forTable() returns an empty list of key constraints for a table with columns, but no defined primary key.
+        //  Test_2_1_4  Verify that Get_PrimaryKeyConstraints_forTable() returns a list of key constraints for a table with columns, but one primary key.
      
         //  Test_2_2_1  Verify that Get_Columns_for_Table() returns a -1 for a missing database.
         //  Test_2_2_2  Verify that Get_Columns_for_Table() returns a 0 for a missing table.
-        //  Test_2_2_3  Verify that Get_Columns_for_Table() returns an empty list of columns for a data table with zero columns.
-        //  Test_2_2_4  Verify that Get_Columns_for_Table() returns a list of columns for a data table with 2 columns.
+        //  Test_2_2_3  Verify that Get_Columns_for_Table() returns a list of columns for a data table with 2 columns.
 
         //  Test_2_3_1  Verify that Get_ColumnInfo_forTable() returns a -1 for a missing database.
         //  Test_2_3_2  Verify that Get_ColumnInfo_forTable() returns a 0 for a missing table.
-        //  Test_2_3_3  Verify that Get_ColumnInfo_forTable() returns an empty list of columns for a data table with zero columns.
-        //  Test_2_3_4  Verify that Get_ColumnInfo_forTable() returns a list of columns for a data table with 2 columns.
+        //  Test_2_3_3  Verify that Get_ColumnInfo_forTable() returns a list of columns for a data table with 2 columns.
 
-        //  Test_2_4_1  Verify that Create_Table() can create datatable with no defined columns.
-        //  Test_2_4_2  Verify that Create_Table() can create datatable with a boolean column that can be null.
-        //  Test_2_4_3  Verify that Create_Table() can create datatable with a boolean column that can not be null.
+        //  Test_2_4_1  Verify that Create_Table() can create datatable with a boolean column that can be null.
+        //  Test_2_4_2  Verify that Create_Table() can create datatable with a boolean column that can not be null.
 
         //  Test_2_5_1  Verify that Create_Table() can create datatable with a PK column of Int type and no identity behavior.
         //  Test_2_5_2  Verify that Create_Table() can create datatable with a PK column of Int type and generate identity behavior.
         //  Test_2_5_3  Verify that Create_Table() can create datatable with a PK column of UUID type and no identity behavior.
-        //  Test_2_5_4  Verify that Create_Table() can create datatable with a PK column of UUID type and generate identity behavior.
+        //  Test_2_5_4  Verify that Create_Table() can create datatable with a PK column of UUID type and generate identity default behavior.
         //  Test_2_5_5  Verify that Create_Table() can create datatable with a PK column of bigint type and no identity behavior.
         //  Test_2_5_6  Verify that Create_Table() can create datatable with a PK column of bigint type and generate identity behavior.
         //  Test_2_5_7  Verify that Create_Table() can create datatable with a PK column of varchar type and length of 10 and no identity behavior.
@@ -716,21 +717,171 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_1_4_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a bogus database name...
+            string bogusdbname = this.GenerateDatabaseName();
+            string bogusdtblname = this.GenerateTableName();
+
+            // Attempt to get the table size...
+            var res = pt.Get_TableSize(bogusdbname, bogusdtblname);
+            if(res != -1)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_1_4_2  Verify that Get_TableSize() returns a -1 for a missing table.
         [TestMethod]
         public async Task Test_1_4_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a bogus table name...
+            string bogusdtblname = this.GenerateTableName();
+
+            // Attempt to get the table size...
+            var res = pt.Get_TableSize(this._dbname, bogusdtblname);
+            if(res != -1)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_1_4_3  Verify that Get_TableSize() returns a positive value for a database with a table containing sample data.
         [TestMethod]
         public async Task Test_1_4_3()
         {
-            Assert.Fail("NEEDS TEST");
+            // We need a DAL to push data...
+            var dal = new MSSQL_DAL();
+            dal.host = this.pt.HostName;
+            dal.service = this.pt.Service;
+            dal.database = this._dbname;
+            dal.password = this.pt.Password;
+            dal.username = this.pt.Username;
+
+            try
+            {
+                // Create a table...
+                string tblname1 = this.GenerateTableName();
+                var tbl1_count = 200; // OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt();
+                {
+                    string col1 = this.GenerateColumnName();
+                    string col2 = this.GenerateColumnName();
+                    string col3 = this.GenerateColumnName();
+                    string col4 = this.GenerateColumnName();
+
+                    // Create the table definition...
+                    var tch = new TableDefinition(tblname1);
+                    tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                    tch.Add_Guid_Column(col1, false);
+                    tch.Add_UTCDateTime_Column(col2, false);
+                    tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                    tch.Add_String_Column(col4, 50, false);
+
+                    // Make the call to create the table...
+                    var res3 = this.pt.Create_Table(this._dbname, tch);
+                    if(res3 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Confirm the table was created...
+                    var res3a = this.pt.DoesTableExist(this._dbname, tblname1);
+                    if(res3a != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Add data to table 1...
+                    for(int x = 1; x <= tbl1_count; x++)
+                    {
+                        // Create an insert for the current record...
+                        string sql = @$"INSERT INTO [dbo].[{tblname1}]([id], [{col1}], [{col2}], [{col3}], [{col4}])
+                                       VALUES (
+                                         {x.ToString()}
+                                        ,'{Guid.NewGuid().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomDateTime().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt()}'
+                                        ,'{this.GenerateDatabaseName()}')";
+
+                        var resi = dal.Execute_NonQuery(sql);
+                        if (resi.res != 1)
+                            Assert.Fail("Wrong Value");
+                    }
+                }
+
+
+                // Attempt to get the table size...
+                var res = pt.Get_TableSize(this._dbname, tblname1);
+                if(res <= 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                dal.Dispose();
+            }
+        }
+
+        //  Test_1_4_4  Verify that Get_TableSize() returns a -1 for a missing table, in a database with at least one table.
+        [TestMethod]
+        public async Task Test_1_4_4()
+        {
+            var bogustablename = this.GenerateTableName();
+
+            // We need a DAL to push data...
+            var dal = new MSSQL_DAL();
+            dal.host = this.pt.HostName;
+            dal.service = this.pt.Service;
+            dal.database = this._dbname;
+            dal.password = this.pt.Password;
+            dal.username = this.pt.Username;
+
+            try
+            {
+                // Create a table...
+                string tblname1 = this.GenerateTableName();
+                var tbl1_count = 200; // OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt();
+                {
+                    string col1 = this.GenerateColumnName();
+                    string col2 = this.GenerateColumnName();
+                    string col3 = this.GenerateColumnName();
+                    string col4 = this.GenerateColumnName();
+
+                    // Create the table definition...
+                    var tch = new TableDefinition(tblname1);
+                    tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                    tch.Add_Guid_Column(col1, false);
+                    tch.Add_UTCDateTime_Column(col2, false);
+                    tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                    tch.Add_String_Column(col4, 50, false);
+
+                    // Make the call to create the table...
+                    var res3 = this.pt.Create_Table(this._dbname, tch);
+                    if(res3 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Confirm the table was created...
+                    var res3a = this.pt.DoesTableExist(this._dbname, tblname1);
+                    if(res3a != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Add data to table 1...
+                    for(int x = 1; x <= tbl1_count; x++)
+                    {
+                        // Create an insert for the current record...
+                        string sql = @$"INSERT INTO [dbo].[{tblname1}]([id], [{col1}], [{col2}], [{col3}], [{col4}])
+                                       VALUES (
+                                         {x.ToString()}
+                                        ,'{Guid.NewGuid().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomDateTime().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt()}'
+                                        ,'{this.GenerateDatabaseName()}')";
+
+                        var resi = dal.Execute_NonQuery(sql);
+                        if (resi.res != 1)
+                            Assert.Fail("Wrong Value");
+                    }
+                }
+
+
+                // Attempt to get the table size...
+                var res = pt.Get_TableSize(this._dbname, bogustablename);
+                if(res == -1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                dal.Dispose();
+            }
         }
 
 
@@ -738,14 +889,171 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_1_5_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a bogus database name...
+            string bogusdbname = this.GenerateDatabaseName();
+            string bogusdtblname = this.GenerateTableName();
+
+            // Attempt to see if table is in database...
+            var res = pt.Is_Table_in_Database(bogusdbname, bogusdtblname);
+            if(res != -1)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_1_5_2  Verify that Is_Table_in_Database() returns a 0 for a missing table name.
         [TestMethod]
         public async Task Test_1_5_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a bogus table name...
+            string bogusdtblname = this.GenerateTableName();
+
+            // Attempt to see if table is in database...
+            var res = pt.Is_Table_in_Database(this._dbname, bogusdtblname);
+            if(res != 0)
+                Assert.Fail("Wrong Value");
+        }
+
+        //  Test_1_5_3  Verify that Is_Table_in_Database() returns a 1 for a valid table name.
+        [TestMethod]
+        public async Task Test_1_5_3()
+        {
+            // We need a DAL to push data...
+            var dal = new MSSQL_DAL();
+            dal.host = this.pt.HostName;
+            dal.service = this.pt.Service;
+            dal.database = this._dbname;
+            dal.password = this.pt.Password;
+            dal.username = this.pt.Username;
+
+            try
+            {
+                // Create a table...
+                string tblname1 = this.GenerateTableName();
+                var tbl1_count = 200; // OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt();
+                {
+                    string col1 = this.GenerateColumnName();
+                    string col2 = this.GenerateColumnName();
+                    string col3 = this.GenerateColumnName();
+                    string col4 = this.GenerateColumnName();
+
+                    // Create the table definition...
+                    var tch = new TableDefinition(tblname1);
+                    tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                    tch.Add_Guid_Column(col1, false);
+                    tch.Add_UTCDateTime_Column(col2, false);
+                    tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                    tch.Add_String_Column(col4, 50, false);
+
+                    // Make the call to create the table...
+                    var res3 = this.pt.Create_Table(this._dbname, tch);
+                    if(res3 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Confirm the table was created...
+                    var res3a = this.pt.DoesTableExist(this._dbname, tblname1);
+                    if(res3a != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Add data to table 1...
+                    for(int x = 1; x <= tbl1_count; x++)
+                    {
+                        // Create an insert for the current record...
+                        string sql = @$"INSERT INTO [dbo].[{tblname1}]([id], [{col1}], [{col2}], [{col3}], [{col4}])
+                                       VALUES (
+                                         {x.ToString()}
+                                        ,'{Guid.NewGuid().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomDateTime().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt()}'
+                                        ,'{this.GenerateDatabaseName()}')";
+
+                        var resi = dal.Execute_NonQuery(sql);
+                        if (resi.res != 1)
+                            Assert.Fail("Wrong Value");
+                    }
+                }
+
+
+                // Attempt to check if table is present...
+                var res = pt.Is_Table_in_Database(this._dbname, tblname1);
+                if(res != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                dal.Dispose();
+            }
+        }
+
+        //  Test_1_5_4  Verify that Is_Table_in_Database() returns a 0 for a missing table name, in a database with at least one table.
+        [TestMethod]
+        public async Task Test_1_5_4()
+        {
+            var bogustablename = this.GenerateTableName();
+
+            // We need a DAL to push data...
+            var dal = new MSSQL_DAL();
+            dal.host = this.pt.HostName;
+            dal.service = this.pt.Service;
+            dal.database = this._dbname;
+            dal.password = this.pt.Password;
+            dal.username = this.pt.Username;
+
+            try
+            {
+                // Create a table...
+                string tblname1 = this.GenerateTableName();
+                var tbl1_count = 200; // OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt();
+                {
+                    string col1 = this.GenerateColumnName();
+                    string col2 = this.GenerateColumnName();
+                    string col3 = this.GenerateColumnName();
+                    string col4 = this.GenerateColumnName();
+
+                    // Create the table definition...
+                    var tch = new TableDefinition(tblname1);
+                    tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                    tch.Add_Guid_Column(col1, false);
+                    tch.Add_UTCDateTime_Column(col2, false);
+                    tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                    tch.Add_String_Column(col4, 50, false);
+
+                    // Make the call to create the table...
+                    var res3 = this.pt.Create_Table(this._dbname, tch);
+                    if(res3 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Confirm the table was created...
+                    var res3a = this.pt.DoesTableExist(this._dbname, tblname1);
+                    if(res3a != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Add data to table 1...
+                    for(int x = 1; x <= tbl1_count; x++)
+                    {
+                        // Create an insert for the current record...
+                        string sql = @$"INSERT INTO [dbo].[{tblname1}]([id], [{col1}], [{col2}], [{col3}], [{col4}])
+                                       VALUES (
+                                         {x.ToString()}
+                                        ,'{Guid.NewGuid().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomDateTime().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt()}'
+                                        ,'{this.GenerateDatabaseName()}')";
+
+                        var resi = dal.Execute_NonQuery(sql);
+                        if (resi.res != 1)
+                            Assert.Fail("Wrong Value");
+                    }
+                }
+
+
+                // Attempt to check if table is present...
+                var res = pt.Is_Table_in_Database(this._dbname, bogustablename);
+                if(res != 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                dal.Dispose();
+            }
         }
 
 
@@ -753,14 +1061,171 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_1_6_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a bogus database name...
+            string bogusdbname = this.GenerateDatabaseName();
+            string bogusdtblname = this.GenerateTableName();
+
+            // Attempt to see if table is in database...
+            var res = pt.DoesTableExist(bogusdbname, bogusdtblname);
+            if(res != -1)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_1_6_2  Verify that DoesTableExist() returns a 0 for a missing table name.
         [TestMethod]
         public async Task Test_1_6_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a bogus table name...
+            string bogusdtblname = this.GenerateTableName();
+
+            // Attempt to see if table is in database...
+            var res = pt.DoesTableExist(this._dbname, bogusdtblname);
+            if(res != 0)
+                Assert.Fail("Wrong Value");
+        }
+
+        //  Test_1_6_3  Verify that DoesTableExist() returns a 1 for a valid table name.
+        [TestMethod]
+        public async Task Test_1_6_3()
+        {
+            // We need a DAL to push data...
+            var dal = new MSSQL_DAL();
+            dal.host = this.pt.HostName;
+            dal.service = this.pt.Service;
+            dal.database = this._dbname;
+            dal.password = this.pt.Password;
+            dal.username = this.pt.Username;
+
+            try
+            {
+                // Create a table...
+                string tblname1 = this.GenerateTableName();
+                var tbl1_count = 200; // OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt();
+                {
+                    string col1 = this.GenerateColumnName();
+                    string col2 = this.GenerateColumnName();
+                    string col3 = this.GenerateColumnName();
+                    string col4 = this.GenerateColumnName();
+
+                    // Create the table definition...
+                    var tch = new TableDefinition(tblname1);
+                    tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                    tch.Add_Guid_Column(col1, false);
+                    tch.Add_UTCDateTime_Column(col2, false);
+                    tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                    tch.Add_String_Column(col4, 50, false);
+
+                    // Make the call to create the table...
+                    var res3 = this.pt.Create_Table(this._dbname, tch);
+                    if(res3 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Confirm the table was created...
+                    var res3a = this.pt.DoesTableExist(this._dbname, tblname1);
+                    if(res3a != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Add data to table 1...
+                    for(int x = 1; x <= tbl1_count; x++)
+                    {
+                        // Create an insert for the current record...
+                        string sql = @$"INSERT INTO [dbo].[{tblname1}]([id], [{col1}], [{col2}], [{col3}], [{col4}])
+                                       VALUES (
+                                         {x.ToString()}
+                                        ,'{Guid.NewGuid().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomDateTime().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt()}'
+                                        ,'{this.GenerateDatabaseName()}')";
+
+                        var resi = dal.Execute_NonQuery(sql);
+                        if (resi.res != 1)
+                            Assert.Fail("Wrong Value");
+                    }
+                }
+
+
+                // Attempt to check if table is present...
+                var res = pt.DoesTableExist(this._dbname, tblname1);
+                if(res != 1)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                dal.Dispose();
+            }
+        }
+
+        //  Test_1_6_4  Verify that DoesTableExist() returns a 0 for a missing table name, in a database with at least one table.
+        [TestMethod]
+        public async Task Test_1_6_4()
+        {
+            var bogustablename = this.GenerateTableName();
+
+            // We need a DAL to push data...
+            var dal = new MSSQL_DAL();
+            dal.host = this.pt.HostName;
+            dal.service = this.pt.Service;
+            dal.database = this._dbname;
+            dal.password = this.pt.Password;
+            dal.username = this.pt.Username;
+
+            try
+            {
+                // Create a table...
+                string tblname1 = this.GenerateTableName();
+                var tbl1_count = 200; // OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt();
+                {
+                    string col1 = this.GenerateColumnName();
+                    string col2 = this.GenerateColumnName();
+                    string col3 = this.GenerateColumnName();
+                    string col4 = this.GenerateColumnName();
+
+                    // Create the table definition...
+                    var tch = new TableDefinition(tblname1);
+                    tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                    tch.Add_Guid_Column(col1, false);
+                    tch.Add_UTCDateTime_Column(col2, false);
+                    tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                    tch.Add_String_Column(col4, 50, false);
+
+                    // Make the call to create the table...
+                    var res3 = this.pt.Create_Table(this._dbname, tch);
+                    if(res3 != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Confirm the table was created...
+                    var res3a = this.pt.DoesTableExist(this._dbname, tblname1);
+                    if(res3a != 1)
+                        Assert.Fail("Wrong Value");
+
+                    // Add data to table 1...
+                    for(int x = 1; x <= tbl1_count; x++)
+                    {
+                        // Create an insert for the current record...
+                        string sql = @$"INSERT INTO [dbo].[{tblname1}]([id], [{col1}], [{col2}], [{col3}], [{col4}])
+                                       VALUES (
+                                         {x.ToString()}
+                                        ,'{Guid.NewGuid().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomDateTime().ToString()}'
+                                        ,'{OGA.Testing.Helpers.RandomValueGenerators.CreateRandomInt()}'
+                                        ,'{this.GenerateDatabaseName()}')";
+
+                        var resi = dal.Execute_NonQuery(sql);
+                        if (resi.res != 1)
+                            Assert.Fail("Wrong Value");
+                    }
+                }
+
+
+                // Attempt to check if table is present...
+                var res = pt.DoesTableExist(this._dbname, bogustablename);
+                if(res != 0)
+                    Assert.Fail("Wrong Value");
+            }
+            finally
+            {
+                dal.Dispose();
+            }
         }
 
 
@@ -768,21 +1233,112 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_1_7_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a bogus database name...
+            var bogusdatasename = this.GenerateDatabaseName();
+
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            {
+                string col1 = this.GenerateColumnName();
+                string col2 = this.GenerateColumnName();
+                string col3 = this.GenerateColumnName();
+                string col4 = this.GenerateColumnName();
+
+                // Create the table definition...
+                tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                tch.Add_Guid_Column(col1, false);
+                tch.Add_UTCDateTime_Column(col2, false);
+                tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                tch.Add_String_Column(col4, 50, false);
+            }
+
+            // Attempt to create the table in the missing database...
+            var res = pt.Create_Table(bogusdatasename, tch);
+            if(res != -1)
+                Assert.Fail("Wrong Value");
         }
 
-        //  Test_1_7_2  Verify that Create_Table() returns a -2 for a bad table definition.
+        //  Test_1_7_2  Verify that Create_Table() returns a -1 for a null table definition.
         [TestMethod]
         public async Task Test_1_7_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, null);
+            if(res != -1)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_1_7_3  Verify that Create_Table() successfully created a database table for a given table definition.
         [TestMethod]
         public async Task Test_1_7_3()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            {
+                string col1 = this.GenerateColumnName();
+                string col2 = this.GenerateColumnName();
+                string col3 = this.GenerateColumnName();
+                string col4 = this.GenerateColumnName();
+
+                // Create the table definition...
+                tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                tch.Add_Guid_Column(col1, false);
+                tch.Add_UTCDateTime_Column(col2, false);
+                tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                tch.Add_String_Column(col4, 50, false);
+            }
+
+            
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+        }
+
+        //  Test_1_7_4  Verify that Create_Table() returns a 1 if the table name already exists.
+        [TestMethod]
+        public async Task Test_1_7_4()
+        {
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            {
+                string col1 = this.GenerateColumnName();
+                string col2 = this.GenerateColumnName();
+                string col3 = this.GenerateColumnName();
+                string col4 = this.GenerateColumnName();
+
+                // Create the table definition...
+                tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                tch.Add_Guid_Column(col1, false);
+                tch.Add_UTCDateTime_Column(col2, false);
+                tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                tch.Add_String_Column(col4, 50, false);
+            }
+
+            
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to add the table again...
+            var res2 = pt.Create_Table(this._dbname, tch);
+            if(res2 != 1)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -790,21 +1346,64 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_1_8_1()
         {
-            Assert.Fail("NEEDS TEST");
+            var bogusdatabasename = this.GenerateDatabaseName();
+            var tablename1 = this.GenerateTableName();
+
+            // Attempt to delete the table from the bogus database...
+            var res2 = pt.Drop_Table(bogusdatabasename, tablename1);
+            if(res2 != -1)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_1_8_2  Verify that Drop_Table() returns success if the table is not present.
         [TestMethod]
         public async Task Test_1_8_2()
         {
-            Assert.Fail("NEEDS TEST");
+            var tablename1 = this.GenerateTableName();
+
+            // Attempt to delete the table from the database...
+            var res2 = pt.Drop_Table(this._dbname, tablename1);
+            if(res2 != 1)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_1_8_3  Verify that Drop_Table() returns success for deleting a data table that was present.
         [TestMethod]
         public async Task Test_1_8_3()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            {
+                string col1 = this.GenerateColumnName();
+                string col2 = this.GenerateColumnName();
+                string col3 = this.GenerateColumnName();
+                string col4 = this.GenerateColumnName();
+
+                // Create the table definition...
+                tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                tch.Add_Guid_Column(col1, false);
+                tch.Add_UTCDateTime_Column(col2, false);
+                tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                tch.Add_String_Column(col4, 50, false);
+            }
+
+            
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to delete the table from the database...
+            var resd = pt.Drop_Table(this._dbname, tblname1);
+            if(resd != 1)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -812,35 +1411,121 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_2_1_1()
         {
-            Assert.Fail("NEEDS TEST");
+            var bogusdatabasename = this.GenerateDatabaseName();
+            var tablename1 = this.GenerateTableName();
+
+            // Attempt to get key constraints...
+            var res2 = pt.Get_PrimaryKeyConstraints_forTable(bogusdatabasename, tablename1, out var kcl);
+            if(res2 != -1 || kcl != null)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_2_1_2  Verify that Get_PrimaryKeyConstraints_forTable() returns a 0 for a missing table.
         [TestMethod]
         public async Task Test_2_1_2()
         {
-            Assert.Fail("NEEDS TEST");
+            string tblname1 = this.GenerateTableName();
+
+            // Attempt to get key constraints...
+            var res2 = pt.Get_PrimaryKeyConstraints_forTable(this._dbname, tblname1, out var kcl);
+            if(res2 != 0 || kcl != null)
+                Assert.Fail("Wrong Value");
         }
 
-        //  Test_2_1_3  Verify that Get_PrimaryKeyConstraints_forTable() returns an empty list of key constraints for a table with no columns.
+        //  Test_2_1_3  Verify that Get_PrimaryKeyConstraints_forTable() returns an empty list of key constraints for a table with columns, but no defined primary key.
         [TestMethod]
         public async Task Test_2_1_3()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            {
+                string col1 = this.GenerateColumnName();
+                string col2 = this.GenerateColumnName();
+                string col3 = this.GenerateColumnName();
+                string col4 = this.GenerateColumnName();
+
+                // Create the table definition...
+                tch.Add_Guid_Column(col1, false);
+                tch.Add_UTCDateTime_Column(col2, false);
+                tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                tch.Add_String_Column(col4, 50, false);
+            }
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+            // Attempt to get key constraints...
+            var res2 = pt.Get_PrimaryKeyConstraints_forTable(this._dbname, tblname1, out var kcl);
+            if(res2 != 1 || kcl == null)
+                Assert.Fail("Wrong Value");
+
+            // Verify it was empty...
+            if(kcl.Count != 0)
+                Assert.Fail("Wrong Value");
         }
 
-        //  Test_2_1_4  Verify that Get_PrimaryKeyConstraints_forTable() returns an empty list of key constraints for a table with columns, but no defined primary key.
+        //  Test_2_1_4  Verify that Get_PrimaryKeyConstraints_forTable() returns a list of key constraints for a table with columns, but one primary key.
         [TestMethod]
         public async Task Test_2_1_4()
         {
-            Assert.Fail("NEEDS TEST");
-        }
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            {
+                string col1 = this.GenerateColumnName();
+                string col2 = this.GenerateColumnName();
+                string col3 = this.GenerateColumnName();
+                string col4 = this.GenerateColumnName();
 
-        //  Test_2_1_5  Verify that Get_PrimaryKeyConstraints_forTable() returns a list of key constraints for a table with columns, but one primary key.
-        [TestMethod]
-        public async Task Test_2_1_5()
-        {
-            Assert.Fail("NEEDS TEST");
+                // Create the table definition...
+                tch.Add_Pk_Column("Id", MSSQL.DAL.Model.ePkColTypes.integer);
+                tch.Add_Guid_Column(col1, false);
+                tch.Add_UTCDateTime_Column(col2, false);
+                tch.Add_Numeric_Column(col3, MSSQL.DAL.Model.eNumericColTypes.bigint, false);
+                tch.Add_String_Column(col4, 50, false);
+            }
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+            // Attempt to get key constraints...
+            var res2 = pt.Get_PrimaryKeyConstraints_forTable(this._dbname, tblname1, out var kcl);
+            if(res2 != 1 || kcl == null)
+                Assert.Fail("Wrong Value");
+
+            // Verify it was has an entry...
+            if(kcl.Count != 1)
+                Assert.Fail("Wrong Value");
+
+            var k = kcl.Where(m=>m.key_column == "Id").FirstOrDefault();
+            if(k == null)
+                Assert.Fail("Wrong Value");
+
+            if(k.table_schema != "dbo")
+                Assert.Fail("Wrong Value");
+            if (k.table_name != tblname1)
+                Assert.Fail("Wrong Value");
+            if (k.position != 1)
+                Assert.Fail("Wrong Value");
+            if (k.key_column != "Id")
+                Assert.Fail("Wrong Value");
+            if (k.constraint_name != $"PK_{tblname1}")
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -848,28 +1533,63 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_2_2_1()
         {
-            Assert.Fail("NEEDS TEST");
+            var bogusdatabasename = this.GenerateDatabaseName();
+            var tablename1 = this.GenerateTableName();
+
+            // Attempt to get column data...
+            var res2 = pt.Get_Columns_for_Table(bogusdatabasename, tablename1, out var tcl);
+            if(res2 != -1 || tcl != null)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_2_2_2  Verify that Get_Columns_for_Table() returns a 0 for a missing table.
         [TestMethod]
         public async Task Test_2_2_2()
         {
-            Assert.Fail("NEEDS TEST");
+            var tablename1 = this.GenerateTableName();
+
+            // Attempt to get column data...
+            var res2 = pt.Get_Columns_for_Table(this._dbname, tablename1, out var tcl);
+            if(res2 != 0 || tcl != null)
+                Assert.Fail("Wrong Value");
         }
 
-        //  Test_2_2_3  Verify that Get_Columns_for_Table() returns an empty list of columns for a data table with zero columns.
+        //  Test_2_2_3  Verify that Get_Columns_for_Table() returns a list of columns for a data table with 2 columns.
         [TestMethod]
         public async Task Test_2_2_3()
         {
-            Assert.Fail("NEEDS TEST");
-        }
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            string col2 = this.GenerateColumnName();
+            // Create the table definition...
+            tch.Add_Guid_Column(col1, false);
+            tch.Add_UTCDateTime_Column(col2, false);
 
-        //  Test_2_2_4  Verify that Get_Columns_for_Table() returns a list of columns for a data table with 2 columns.
-        [TestMethod]
-        public async Task Test_2_2_4()
-        {
-            Assert.Fail("NEEDS TEST");
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column list...
+            var res2 = pt.Get_Columns_for_Table(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 2)
+                Assert.Fail("Wrong Value");
+            if(!tcl.Contains(col1))
+                Assert.Fail("Wrong Value");
+            if(!tcl.Contains(col2))
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -877,50 +1597,162 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_2_3_1()
         {
-            Assert.Fail("NEEDS TEST");
+            var bogusdatabasename = this.GenerateDatabaseName();
+            var tablename1 = this.GenerateTableName();
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(bogusdatabasename, tablename1, out var tcl);
+            if(res2 != -1 || tcl != null)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_2_3_2  Verify that Get_ColumnInfo_forTable() returns a 0 for a missing table.
         [TestMethod]
         public async Task Test_2_3_2()
         {
-            Assert.Fail("NEEDS TEST");
+            var tablename1 = this.GenerateTableName();
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tablename1, out var tcl);
+            if(res2 != 0 || tcl != null)
+                Assert.Fail("Wrong Value");
         }
 
-        //  Test_2_3_3  Verify that Get_ColumnInfo_forTable() returns an empty list of columns for a data table with zero columns.
+        //  Test_2_3_3  Verify that Get_ColumnInfo_forTable() returns a list of columns for a data table with 2 columns.
         [TestMethod]
         public async Task Test_2_3_3()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            string col2 = this.GenerateColumnName();
+            // Create the table definition...
+            tch.Add_Guid_Column(col1, false);
+            tch.Add_UTCDateTime_Column(col2, false);
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 2)
+                Assert.Fail("Wrong Value");
+            if(!tcl.Any(m=>m.name != col1))
+                Assert.Fail("Wrong Value");
+            if(!tcl.Any(m=>m.name != col2))
+                Assert.Fail("Wrong Value");
         }
 
-        //  Test_2_3_4  Verify that Get_ColumnInfo_forTable() returns a list of columns for a data table with 2 columns.
-        [TestMethod]
-        public async Task Test_2_3_4()
-        {
-            Assert.Fail("NEEDS TEST");
-        }
 
-
-        //  Test_2_4_1  Verify that Create_Table() can create datatable with no defined columns.
+        //  Test_2_4_1  Verify that Create_Table() can create datatable with a boolean column that can be null.
         [TestMethod]
         public async Task Test_2_4_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Boolean_Column(col1, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_bit)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
-        //  Test_2_4_2  Verify that Create_Table() can create datatable with a boolean column that can be null.
+        //  Test_2_4_2  Verify that Create_Table() can create datatable with a boolean column that can not be null.
         [TestMethod]
         public async Task Test_2_4_2()
         {
-            Assert.Fail("NEEDS TEST");
-        }
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Boolean_Column(col1, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
 
-        //  Test_2_4_3  Verify that Create_Table() can create datatable with a boolean column that can not be null.
-        [TestMethod]
-        public async Task Test_2_4_3()
-        {
-            Assert.Fail("NEEDS TEST");
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_bit)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -928,49 +1760,343 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_2_5_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Pk_Column(col1, ePkColTypes.integer, MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_int)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_2_5_2  Verify that Create_Table() can create datatable with a PK column of Int type and generate identity behavior.
         [TestMethod]
         public async Task Test_2_5_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Pk_Column(col1, ePkColTypes.integer, MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_int)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == false)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_2_5_3  Verify that Create_Table() can create datatable with a PK column of UUID type and no identity behavior.
         [TestMethod]
         public async Task Test_2_5_3()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Pk_Column(col1, ePkColTypes.uuid, MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_uniqueidentifier)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
-        //  Test_2_5_4  Verify that Create_Table() can create datatable with a PK column of UUID type and generate identity behavior.
+        //  Test_2_5_4  Verify that Create_Table() can create datatable with a PK column of UUID type and generate identity default behavior.
         [TestMethod]
         public async Task Test_2_5_4()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Pk_Column(col1, ePkColTypes.uuid, MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateByDefault);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_uniqueidentifier)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if (tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateByDefault)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_2_5_5  Verify that Create_Table() can create datatable with a PK column of bigint type and no identity behavior.
         [TestMethod]
         public async Task Test_2_5_5()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Pk_Column(col1, ePkColTypes.bigint, MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_bigint)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_2_5_6  Verify that Create_Table() can create datatable with a PK column of bigint type and generate identity behavior.
         [TestMethod]
         public async Task Test_2_5_6()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Pk_Column(col1, ePkColTypes.bigint, MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_bigint)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == false)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_2_5_7  Verify that Create_Table() can create datatable with a PK column of varchar type and length of 10 and no identity behavior.
         [TestMethod]
         public async Task Test_2_5_7()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Pk_Column(col1, ePkColTypes.varchar, MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET, 10);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_nvarchar)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != 10)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -978,14 +2104,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_3_1_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_DateTime_Column(col1, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_datetime2)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_3_1_2  Verify that Create_Table() can create datatable with a non-UTC datetime column that can not be null.
         [TestMethod]
         public async Task Test_3_1_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_DateTime_Column(col1, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_datetime2)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -993,14 +2203,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_3_2_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_UTCDateTime_Column(col1, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_datetimeoffset)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_3_2_2  Verify that Create_Table() can create datatable with a UTC DateTime column that can not be null.
         [TestMethod]
         public async Task Test_3_2_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_UTCDateTime_Column(col1, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_datetimeoffset)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1008,14 +2302,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_4_1_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Guid_Column(col1, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_uniqueidentifier)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_4_1_2  Verify that Create_Table() can create datatable with a GUID column that can not be null.
         [TestMethod]
         public async Task Test_4_1_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Guid_Column(col1, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_uniqueidentifier)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1023,14 +2401,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_5_1_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.integer, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_int)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_5_1_2  Verify that Create_Table() can create datatable with a Int column that can not be null.
         [TestMethod]
         public async Task Test_5_1_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.integer, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_int)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1038,14 +2500,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_5_2_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.bigint, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_bigint)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_5_2_2  Verify that Create_Table() can create datatable with a bigint column that can not be null.
         [TestMethod]
         public async Task Test_5_2_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.bigint, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_bigint)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1053,14 +2599,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_5_3_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.real, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_real)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_5_3_2  Verify that Create_Table() can create datatable with a real column that can not be null.
         [TestMethod]
         public async Task Test_5_3_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.real, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_real)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1068,14 +2698,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_5_4_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.double_precision, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_float)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_5_4_2  Verify that Create_Table() can create datatable with a doubleprecision column that can not be null.
         [TestMethod]
         public async Task Test_5_4_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.double_precision, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_float)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1083,14 +2797,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_5_5_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.numeric, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_decimal)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_5_5_2  Verify that Create_Table() can create datatable with a numeric column that can not be null.
         [TestMethod]
         public async Task Test_5_5_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_Numeric_Column(col1, eNumericColTypes.numeric, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_decimal)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != null)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1098,14 +2896,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_6_1_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_String_Column(col1, 10, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_nvarchar)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != 10)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_6_1_2  Verify that Create_Table() can create datatable with a 10-character string column that can not be null.
         [TestMethod]
         public async Task Test_6_1_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_String_Column(col1, 10, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_nvarchar)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != 10)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1113,14 +2995,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_6_2_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_String_Column(col1, 100, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_nvarchar)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != 100)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_6_2_2  Verify that Create_Table() can create datatable with a 100-character string column that can not be null.
         [TestMethod]
         public async Task Test_6_2_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_String_Column(col1, 100, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_nvarchar)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != 100)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 
@@ -1128,14 +3094,98 @@ CREATE TESTS FROM HERE DOWN...
         [TestMethod]
         public async Task Test_6_3_1()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_String_Column(col1, 0, true);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_nvarchar)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != 0)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == false)
+                Assert.Fail("Wrong Value");
         }
 
         //  Test_6_3_2  Verify that Create_Table() can create datatable with a max-length (length=0) string column that can not be null.
         [TestMethod]
         public async Task Test_6_3_2()
         {
-            Assert.Fail("NEEDS TEST");
+            // Create a table def to use...
+            string tblname1 = this.GenerateTableName();
+            var tch = new TableDefinition(tblname1);
+            string col1 = this.GenerateColumnName();
+            // Create the table definition...
+            var resa = tch.Add_String_Column(col1, 0, false);
+            if (resa != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to create the table in the database...
+            var res = pt.Create_Table(this._dbname, tch);
+            if(res != 1)
+                Assert.Fail("Wrong Value");
+
+            // Verify the table was created...
+            var resc = pt.Is_Table_in_Database(this._dbname, tblname1);
+            if(resc != 1)
+                Assert.Fail("Wrong Value");
+
+
+            // Attempt to get column info...
+            var res2 = pt.Get_ColumnInfo_forTable(this._dbname, tblname1, out var tcl);
+            if(res2 != 1 || tcl == null)
+                Assert.Fail("Wrong Value");
+
+            if(tcl.Count != 1)
+                Assert.Fail("Wrong Value");
+            var tc = tcl.Where(m => m.name == col1).FirstOrDefault();
+            if(tc == null)
+                Assert.Fail("Wrong Value");
+            if(tc.dataType != SQL_Datatype_Names.CONST_SQL_nvarchar)
+                Assert.Fail("Wrong Value");
+            if(tc.ordinal != 1)
+                Assert.Fail("Wrong Value");
+            if(tc.isIdentity == true)
+                Assert.Fail("Wrong Value");
+            if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
+            if(tc.maxlength != 0)
+                Assert.Fail("Wrong Value");
+            if(tc.isNullable == true)
+                Assert.Fail("Wrong Value");
         }
 
 

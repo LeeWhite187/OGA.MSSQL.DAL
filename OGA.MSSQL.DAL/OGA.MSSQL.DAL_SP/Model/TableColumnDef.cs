@@ -53,16 +53,22 @@ namespace OGA.MSSQL.DAL.Model
                 sb.Append(" NOT NULL");
 
             // Add identity sequencing if needed...
-            // SQL Server only supports IDENTITY(x,y) 
-            if (this.IdentityBehavior == eIdentityBehavior.GenerateByDefault)
+            // SQL Server only supports IDENTITY(x,y) for numerics, and default sequence method for UUID.
+            if (this.IdentityBehavior == eIdentityBehavior.GenerateAlways)
             {
-                // The column expects some rule about identity creation.
+                // The column expects identity creation for all records.
 
                 // Specify the correct identity method by column type...
                 if(this.ColType == SQL_Datatype_Names.CONST_SQL_int || this.ColType == SQL_Datatype_Names.CONST_SQL_bigint)
                 {
                     sb.Append(" IDENTITY(1,1)");
                 }
+            }
+            else if (this.IdentityBehavior == eIdentityBehavior.GenerateByDefault)
+            {
+                // The column expects default identity creation rule.
+
+                // Specify the correct identity method by column type...
                 if(this.ColType == SQL_Datatype_Names.CONST_SQL_uniqueidentifier)
                 {
                     sb.Append($" CONSTRAINT [DF_{this.TableName}_{this.ColName}] DEFAULT NEWSEQUENTIALID()");
