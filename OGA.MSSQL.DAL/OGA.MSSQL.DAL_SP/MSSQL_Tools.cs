@@ -5287,16 +5287,6 @@ namespace OGA.MSSQL
                 return eSQLRoles.none;
         }
 
-        private void Close_MasterDAL()
-        {
-            try
-            {
-                _master_dal?.Dispose();
-            }
-            catch (Exception) { }
-            _master_dal = null;
-        }
-
         /// <summary>
         /// Centralized logic for retrieving config values from the master database, usually queried as a specific column of a single-record from a tabular result.
         /// Returns 1 if found, 0 if nothing found, negatives for errors.
@@ -5452,6 +5442,21 @@ namespace OGA.MSSQL
                 }
                 catch (Exception) { }
             }
+        }
+
+        private void Close_MasterDAL()
+        {
+            try
+            {
+                _master_dal?.Disconnect();
+            }
+            catch (Exception) { }
+            try
+            {
+                _master_dal?.Dispose();
+            }
+            catch (Exception) { }
+            _master_dal = null;
         }
 
         /// <summary>
