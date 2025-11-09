@@ -198,6 +198,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public (int res, string? folderpath) Get_DefaultDataDirectory()
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_DefaultDataDirectory)} - " +
+                    "Already disposed.");
+
+                return (-100, null);
+            }
+
             // Compose the sql query for the file locations...
             string sql = "SELECT SERVERPROPERTY('InstanceDefaultDataPath') AS folderpath;";
 
@@ -218,6 +229,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public (int res, string? folderpath) Get_DefaultLogDirectory()
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_DefaultLogDirectory)} - " +
+                    "Already disposed.");
+
+                return (-100, null);
+            }
+
             // Compose the sql query for the file locations...
             string sql = "SELECT SERVERPROPERTY('InstanceDefaultLogPath')  AS folderpath;";
 
@@ -236,6 +258,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public (int res, int count) GetConnectionCountforDatabase(string database)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(GetConnectionCountforDatabase)} - " +
+                    "Already disposed.");
+
+                return (-100, -1);
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -327,6 +360,17 @@ namespace OGA.MSSQL
         {
             object tempval;
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(SQLEngine_DoesFileExist)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Connect to the database...
@@ -406,6 +450,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int SQLEngine_EnableCmdShell()
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(SQLEngine_EnableCmdShell)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Connect to the database...
@@ -455,12 +510,24 @@ namespace OGA.MSSQL
                 return -10;
             }
         }
+
         /// <summary>
         /// Attempts to disable command shell access on the SQL Engine.
         /// </summary>
         /// <returns></returns>
         public int SQLEngine_DisableCmdShell()
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(SQLEngine_DisableCmdShell)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Connect to the database...
@@ -505,6 +572,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int SQLEngine_DeleteFile(string filepath)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(SQLEngine_DeleteFile)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Connect to the database...
@@ -575,6 +653,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Execute_SQLCMD_Query_to_CSV(string query, string filepath, bool using_trusted_Security)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Execute_SQLCMD_Query_to_CSV)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             // Build a command of the form:
             // SQLCMD -S localhost -U <username> -P <password> -Q "SELECT * FROM [PKG_Bottle_Data].[dbo].[tbl_Color_InspData]" -s "," -o "D:\Color.csv"
             // Generate the output file path.
@@ -642,6 +731,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public (int res, string? owner) Get_DatabaseOwner(string database)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_DatabaseOwner)} - " +
+                    "Already disposed.");
+
+                return (-100, null);
+            }
+
             // Compose the sql query for the file locations...
             string sql = $"SELECT suser_sname(owner_sid) AS OwnerLogin " +
                          $"FROM sys.databases " +
@@ -668,6 +768,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int ChangeDatabaseOwner(string database, string newowner)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(ChangeDatabaseOwner)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -782,6 +893,17 @@ namespace OGA.MSSQL
         {
             object tempval = "";
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Does_Database_Exist)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Connect to the database...
@@ -874,6 +996,7 @@ namespace OGA.MSSQL
         {
             return Create_Database(database, "");
         }
+
         /// <summary>
         /// Creates a database with the given name.
         /// Accepts a folder path where the database files will be stored.
@@ -885,6 +1008,17 @@ namespace OGA.MSSQL
         public int Create_Database(string database, string backendfilefolder)
         {
             string sql = "";
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Create_Database)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             try
             {
@@ -997,6 +1131,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Set_Database_toSingleUser(string database)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Set_Database_toSingleUser)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the database name was give.
@@ -1073,6 +1218,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Set_Database_toMultiUser(string database)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Set_Database_toMultiUser)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the database name was give.
@@ -1149,6 +1305,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public (int res, eAccessMode accessmode) Get_Database_AccessMode(string database)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_Database_AccessMode)} - " +
+                    "Already disposed.");
+
+                return (-100, eAccessMode.Unknown);
+            }
+
             // Compose the sql query for the database access mode...
             string sql = $"SELECT user_access_desc FROM sys.databases WHERE name = '{database}';";
 
@@ -1178,6 +1345,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Drop_Database(string database, bool force = false)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Drop_Database)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the database name was give.
@@ -1334,6 +1512,17 @@ namespace OGA.MSSQL
             System.Data.DataTable dt = null;
             dblist = new List<string>();
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_DatabaseList)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -1415,6 +1604,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Backup_Database(string databaseName, string filePath)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Backup_Database)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
@@ -1480,6 +1680,17 @@ namespace OGA.MSSQL
         public int Restore_Database(string database, string filepath)
         {
             string sql = "";
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Restore_Database)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             try
             {
@@ -1595,6 +1806,17 @@ namespace OGA.MSSQL
             System.Data.DataTable dt = null;
             List<string> filepaths;
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_Backend_Filepaths_for_Database)} - " +
+                    "Already disposed.");
+
+                return (-100, null);
+            }
+
             // Check that the database name was give.
             if (String.IsNullOrWhiteSpace(database))
             {
@@ -1694,6 +1916,17 @@ namespace OGA.MSSQL
         {
             System.Data.DataTable dt = null;
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_DatabaseSize)} - " +
+                    "Already disposed.");
+
+                return (-100, 0);
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -1790,6 +2023,17 @@ namespace OGA.MSSQL
         public int Does_Login_Exist(string login)
         {
             System.Data.DataTable dt = null;
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Does_Login_Exist)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             try
             {
@@ -1896,6 +2140,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Add_WindowsLogin(string login)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Add_WindowsLogin)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             // Check that the user is in the logins list already.
             int res = this.Does_Login_Exist(login);
             if (res < 0)
@@ -1965,6 +2220,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Add_LocalLogin(string login, string password)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Add_LocalLogin)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             // Check that the user is in the logins list already.
             int res = this.Does_Login_Exist(login);
             if (res < 0)
@@ -2048,6 +2314,17 @@ namespace OGA.MSSQL
             loginlist = new List<string>();
             System.Data.DataTable dt = null;
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(GetLoginList)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -2125,6 +2402,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int DeleteLogin(string username)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(DeleteLogin)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -2207,6 +2495,17 @@ namespace OGA.MSSQL
         {
             userlist = new List<string>();
             System.Data.DataTable dt = null;
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(GetDatabaseUsers)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             try
             {
@@ -2294,6 +2593,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Does_User_Exist_forDatabase(string database, string username)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Does_User_Exist_forDatabase)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // This action requires a connection to the target database.
@@ -2372,6 +2682,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Add_User_to_Database(string database, string login, List<eSQLRoles>? desiredroles = null)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Add_User_to_Database)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the login is is in the logins list already, on the SQL Host.
@@ -2530,6 +2851,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int DeleteUserfromDatabase(string database, string username)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(DeleteUserfromDatabase)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -2609,6 +2941,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int ChangeLoginPassword(string username, string password = "")
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(ChangeLoginPassword)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -2703,6 +3046,17 @@ namespace OGA.MSSQL
         {
             roles = null;
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_SQlHostRoles_for_Login)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             if (Get_Roles_for_SQLHost(out var serverroles) != 1)
             {
                 // Error occurred.
@@ -2747,6 +3101,17 @@ namespace OGA.MSSQL
         {
             System.Data.DataTable dt = null;
             roles = null;
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_Roles_for_SQLHost)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             // Compose the query that will pull SQL Host roles.
             string sql = @"SELECT
@@ -2856,6 +3221,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Add_Login_Role(string login, eSQLRoles desiredrole)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Add_Login_Role)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the login is is in the logins list already, on the SQL Host.
@@ -2952,6 +3328,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Drop_Login_Role(string login, eSQLRoles desiredrole)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Drop_Login_Role)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the login is is in the logins list already, on the SQL Host.
@@ -3047,6 +3434,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Does_Login_HaveRole(string login, eSQLRoles role)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Does_Login_HaveRole)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             var resr = this.Get_SQlHostRoles_for_Login(login, out var loginroles);
             if(resr != 1 || loginroles == null)
             {
@@ -3070,6 +3468,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Set_Login_Roles(string login, List<eSQLRoles> desiredroles)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Set_Login_Roles)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the login is is in the logins list already, on the SQL Host.
@@ -3193,6 +3602,17 @@ namespace OGA.MSSQL
         {
             roles = null;
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_DatabaseRoles_for_User)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             if (Get_DatabaseRoles_for_Database(database, out var dbroles) != 1)
             {
                 // Error occurred.
@@ -3238,6 +3658,17 @@ namespace OGA.MSSQL
         {
             System.Data.DataTable dt = null;
             roles = null;
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_DatabaseRoles_for_Database)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             // Compose the query that will pull database roles.
             string sql = @"SELECT
@@ -3375,6 +3806,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Add_User_to_DatabaseRole(string database, string user, eSQLRoles desiredrole)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Add_User_to_DatabaseRole)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the user is is in the database users list already.
@@ -3472,6 +3914,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Drop_User_from_DatabaseRole(string database, string user, eSQLRoles desiredrole)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Drop_User_from_DatabaseRole)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // Check that the user is is in the database users list already.
@@ -3577,6 +4030,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Does_User_Have_DatabaseRole(string database, string user, eSQLRoles role)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Does_User_Have_DatabaseRole)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             var resr = this.Get_DatabaseRoles_for_User(database, user, out var userroles);
             if(resr != 1 || userroles == null)
             {
@@ -3601,6 +4065,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Set_User_DatabaseRoles(string database, string user, List<eSQLRoles> desiredroles)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Set_User_DatabaseRoles)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 // First, see if the database exists...
@@ -3820,6 +4295,17 @@ namespace OGA.MSSQL
             System.Data.DataTable dt = null;
             tablelist = new List<string>();
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_TableList_forDatabase)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -3919,6 +4405,17 @@ namespace OGA.MSSQL
             System.Data.DataTable dt = null;
             rowdata = null;
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_RowCount_for_Tables)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
@@ -4010,6 +4507,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int Get_TableSize(string database,string tablename)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_TableSize)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             if (this.Get_RowCount_for_Tables(database, out var rowdata) != 1)
             {
                 // Failed to get table row count data.
@@ -4054,6 +4562,17 @@ namespace OGA.MSSQL
         public int Is_Table_in_Database(string database, string tablename)
         {
             System.Data.DataTable dt = null;
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Is_Table_in_Database)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             try
             {
@@ -4140,6 +4659,17 @@ namespace OGA.MSSQL
         /// <returns></returns>
         public int DoesTableExist(string database, string tableName)
         {
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(DoesTableExist)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -4197,6 +4727,17 @@ namespace OGA.MSSQL
         public int Create_Table(string database, TableDefinition tabledef)
         {
             string sql = "";
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Create_Table)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             if (tabledef == null)
             {
@@ -4310,6 +4851,17 @@ namespace OGA.MSSQL
         {
             string sql = "";
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Drop_Table)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info(
@@ -4409,6 +4961,17 @@ namespace OGA.MSSQL
         {
             System.Data.DataTable dt = null;
             pklist = null;
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_PrimaryKeyConstraints_forTable)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             try
             {
@@ -4562,6 +5125,17 @@ namespace OGA.MSSQL
             System.Data.DataTable dt = null;
             ColumnNames = null;
 
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_Columns_for_Table)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
+
             try
             {
                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Info("{0}: " +
@@ -4658,6 +5232,17 @@ namespace OGA.MSSQL
         {
             System.Data.DataTable dt = null;
             columnlist = null;
+
+            if(this.disposedValue)
+            {
+                // Already disposed.
+
+                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                    $"{_classname}:-:{nameof(Get_ColumnInfo_forTable)} - " +
+                    "Already disposed.");
+
+                return -100;
+            }
 
             try
             {
@@ -5135,7 +5720,6 @@ namespace OGA.MSSQL
                 catch (Exception) { }
             }
         }
-
 
         private int priv_AddUsertoDatabase(string database, string username)
         {
