@@ -3,6 +3,7 @@ using OGA.Common.Config.structs;
 using OGA.Testing.Lib;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace OGA.MSSQL.DAL_SP_Tests.Helpers
@@ -73,8 +74,43 @@ namespace OGA.MSSQL.DAL_SP_Tests.Helpers
                 "0123456789" +
                 "!@#$%^&*()_+-=[]{}";
 
-            string password = Nanoid.Nanoid.Generate(size: 12, alphabet: alphabet);
-            return password;
+            // Loop until we have a viable password...
+            while(true)
+            {
+                // Create a candidate password...
+                string password = Nanoid.Nanoid.Generate(size: 12, alphabet: alphabet);
+
+                // Is it viable...
+                if(IsValidSqlServerPassword(password))
+                    return password;
+            }
+        }
+
+        /// <summary>
+        /// Validates a password according to SQL Server's typical complexity policy.
+        /// Equivalent to Windows "complex password" rule:
+        ///   - Minimum 8 chars
+        ///   - Contains at least three of these four: upper, lower, digit, symbol
+        /// </summary>
+        public static bool IsValidSqlServerPassword(string password)
+        {
+            if (string.IsNullOrEmpty(password))
+                return false;
+
+            if (password.Length < 8)
+                return false;
+
+            bool hasUpper = password.Any(char.IsUpper);
+            bool hasLower = password.Any(char.IsLower);
+            bool hasDigit = password.Any(char.IsDigit);
+            bool hasSymbol = password.Any(c => !char.IsLetterOrDigit(c));
+
+            int categories = new[] { hasUpper, hasLower, hasDigit, hasSymbol }.Count(b => b);
+
+            if (categories < 3)
+                return false;
+
+            return true;
         }
 
         protected MSSQL_Tools Get_ToolInstance_forMaster()
