@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Text;
 
@@ -36,6 +37,27 @@ namespace OGA.MSSQL
         /// But, it is good to enable in testing, to ensure that connections properly close when expected, and are not pooled for reuse.
         /// </summary>
         public bool Cfg_ClearConnectionPoolOnClose { get; set; } = true;
+
+        /// <summary>
+        /// Indicates when the database is open.
+        /// </summary>
+        public bool IsOpen
+        {
+            get
+            {
+                if (disposedValue)
+                    return false;
+
+                if(this._dbConnection == null)
+                    return false;
+
+                // Get the connection state...
+                var isopen = this._dbConnection?.State == ConnectionState.Open;
+
+                // Return the opposite...
+                return isopen;
+            }
+        }
 
         #endregion
 
