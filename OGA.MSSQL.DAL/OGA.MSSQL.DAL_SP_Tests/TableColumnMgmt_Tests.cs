@@ -18,7 +18,6 @@ using System.Security.Cryptography;
 namespace OGA.MSSQL_Tests
 {
     /*  Unit Tests for MSSQL Tools class.
-        This set of tests exercise the method, Get_ColumnList_forTable().
 
         //  Test_1_1_1  Verify that we can query column names for a table.
         //  Test_1_1_2  Verify that we can query column info for a table.
@@ -313,7 +312,7 @@ namespace OGA.MSSQL_Tests
             var c1 = coldata.FirstOrDefault(m => m.name == "Id");
             if(c1 == null)
                 Assert.Fail("Wrong Value");
-            if(c1.isIdentity != false)
+            if(c1.isPk != true)
                 Assert.Fail("Wrong Value");
             if(c1.dataType != SQL_Datatype_Names.CONST_SQL_int)
                 Assert.Fail("Wrong Value");
@@ -323,11 +322,13 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(c1.ordinal != 1)
                 Assert.Fail("Wrong Value");
+            if(c1.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
 
             var c2 = coldata.FirstOrDefault(m => m.name == col1);
             if(c2 == null)
                 Assert.Fail("Wrong Value");
-            if(c2.isIdentity != false)
+            if(c2.isPk != false)
                 Assert.Fail("Wrong Value");
             if(c2.dataType != SQL_Datatype_Names.CONST_SQL_uniqueidentifier)
                 Assert.Fail("Wrong Value");
@@ -337,11 +338,13 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(c2.ordinal != 2)
                 Assert.Fail("Wrong Value");
+            if(c2.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
 
             var c3 = coldata.FirstOrDefault(m => m.name == col2);
             if(c3 == null)
                 Assert.Fail("Wrong Value");
-            if(c3.isIdentity != false)
+            if(c3.isPk != false)
                 Assert.Fail("Wrong Value");
             if(c3.dataType != SQL_Datatype_Names.CONST_SQL_datetimeoffset)
                 Assert.Fail("Wrong Value");
@@ -351,11 +354,13 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(c3.ordinal != 3)
                 Assert.Fail("Wrong Value");
+            if(c3.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
 
             var c4 = coldata.FirstOrDefault(m => m.name == col3);
             if(c4 == null)
                 Assert.Fail("Wrong Value");
-            if(c4.isIdentity != false)
+            if(c4.isPk != false)
                 Assert.Fail("Wrong Value");
             if(c4.dataType != SQL_Datatype_Names.CONST_SQL_bigint)
                 Assert.Fail("Wrong Value");
@@ -365,11 +370,13 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(c4.ordinal != 4)
                 Assert.Fail("Wrong Value");
+            if(c4.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
+                Assert.Fail("Wrong Value");
 
             var c5 = coldata.FirstOrDefault(m => m.name == col4);
             if(c5 == null)
                 Assert.Fail("Wrong Value");
-            if(c5.isIdentity != false)
+            if(c5.isPk != false)
                 Assert.Fail("Wrong Value");
             if(c5.dataType != SQL_Datatype_Names.CONST_SQL_nvarchar)
                 Assert.Fail("Wrong Value");
@@ -378,6 +385,8 @@ namespace OGA.MSSQL_Tests
             if(c5.maxlength != 50)
                 Assert.Fail("Wrong Value");
             if(c5.ordinal != 5)
+                Assert.Fail("Wrong Value");
+            if(c5.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
         }
 
@@ -1696,7 +1705,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -1745,7 +1754,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -1795,7 +1804,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk != true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -1844,7 +1853,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == false)
+            if(tc.isPk != true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways)
                 Assert.Fail("Wrong Value");
@@ -1893,7 +1902,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk != true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -1942,7 +1951,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if (tc.isIdentity == true)
+            if (tc.isPk != true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateByDefault)
                 Assert.Fail("Wrong Value");
@@ -1991,7 +2000,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk != true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2040,7 +2049,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == false)
+            if(tc.isPk != true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways)
                 Assert.Fail("Wrong Value");
@@ -2089,7 +2098,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk != true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2139,7 +2148,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2188,7 +2197,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2238,7 +2247,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2287,7 +2296,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2337,7 +2346,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2386,7 +2395,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2436,7 +2445,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2485,7 +2494,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2535,7 +2544,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2584,7 +2593,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2634,7 +2643,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2683,7 +2692,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2733,7 +2742,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2782,7 +2791,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2832,7 +2841,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2881,7 +2890,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2931,7 +2940,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -2980,7 +2989,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -3030,7 +3039,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -3079,7 +3088,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -3129,7 +3138,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");
@@ -3178,7 +3187,7 @@ namespace OGA.MSSQL_Tests
                 Assert.Fail("Wrong Value");
             if(tc.ordinal != 1)
                 Assert.Fail("Wrong Value");
-            if(tc.isIdentity == true)
+            if(tc.isPk == true)
                 Assert.Fail("Wrong Value");
             if(tc.identityBehavior != MSSQL.DAL.CreateVerify.Model.eIdentityBehavior.UNSET)
                 Assert.Fail("Wrong Value");

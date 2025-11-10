@@ -5307,6 +5307,43 @@ namespace OGA.MSSQL
                 //             "ORDER BY c.column_id;";
 
                 // This updated query includes details about default constraints, in case the column has a sequence generation method, like a UUID or string column would use.
+                //string sql = $@"SELECT 
+                //                DB_NAME() AS table_catalog,
+                //                s.name AS table_schema,
+                //                t.name AS table_name,
+                //                c.column_id AS ordinal_position,
+                //                c.name AS column_name,
+                //                TYPE_NAME(c.user_type_id) AS data_type,
+                //                CASE 
+                //                    WHEN TYPE_NAME(c.user_type_id) LIKE 'nvarchar' THEN (c.max_length / 2)
+                //                    WHEN TYPE_NAME(c.user_type_id) LIKE '%char' THEN c.max_length
+                //                    WHEN TYPE_NAME(c.user_type_id) = 'text' THEN c.max_length
+                //                    ELSE NULL
+                //                END AS character_maximum_length,
+                //                c.max_length AS character_maximum_length_raw,
+                //                c.precision,
+                //                c.scale,
+                //                c.is_nullable,
+                //                c.is_identity,
+                //                ic.seed_value,
+                //                ic.increment_value,
+                //                ic.last_value,
+                //                CASE 
+                //                    WHEN c.is_identity = 1 THEN 'BY DEFAULT'
+                //                    ELSE NULL
+                //                END AS identity_generation,
+                //                dc.name AS default_constraint_name,
+                //                dc.definition AS default_definition
+                //            FROM sys.columns AS c
+                //            JOIN sys.tables  AS t ON c.object_id = t.object_id
+                //            JOIN sys.schemas AS s ON t.schema_id = s.schema_id
+                //            LEFT JOIN sys.identity_columns AS ic
+                //                ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+                //            LEFT JOIN sys.default_constraints AS dc
+                //                ON c.default_object_id = dc.object_id
+                //            WHERE t.name = '{tableName}'
+                //            ORDER BY t.name, c.column_id;";
+
                 string sql = $@"SELECT 
                                 DB_NAME() AS table_catalog,
                                 s.name AS table_schema,
@@ -5333,7 +5370,10 @@ namespace OGA.MSSQL
                                     ELSE NULL
                                 END AS identity_generation,
                                 dc.name AS default_constraint_name,
-                                dc.definition AS default_definition
+                                dc.definition AS default_definition,
+                                CASE 
+                                    WHEN pkCol.column_id IS NOT NULL THEN 1 ELSE 0
+                                END AS is_primary_key
                             FROM sys.columns AS c
                             JOIN sys.tables  AS t ON c.object_id = t.object_id
                             JOIN sys.schemas AS s ON t.schema_id = s.schema_id
@@ -5341,6 +5381,14 @@ namespace OGA.MSSQL
                                 ON c.object_id = ic.object_id AND c.column_id = ic.column_id
                             LEFT JOIN sys.default_constraints AS dc
                                 ON c.default_object_id = dc.object_id
+                            LEFT JOIN (
+                                SELECT ic2.object_id, ic2.column_id
+                                FROM sys.indexes i
+                                JOIN sys.index_columns ic2
+                                    ON i.object_id = ic2.object_id AND i.index_id = ic2.index_id
+                                WHERE i.is_primary_key = 1
+                            ) AS pkCol
+                                ON c.object_id = pkCol.object_id AND c.column_id = pkCol.column_id
                             WHERE t.name = '{tableName}'
                             ORDER BY t.name, c.column_id;";
 
@@ -5455,108 +5503,127 @@ namespace OGA.MSSQL
                         ct.isNullable = false;
                     }
 
-                    // Recover any identity information for the column...
-                    try
+                    var respk = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "is_primary_key", out bool ispk);
+                    if (respk != 1)
                     {
-                        var res5 = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "is_identity", out bool isidentity);
-                        if (res5 != 1)
+                        // Failed to get is_primary_key column value.
+
+                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                            $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                            $"Failed to get is_primary_key column value.");
+
+                        return -22;
+                    }
+                    ct.isPk = ispk;
+
+                    // Retrieve identity info if the column is a primary key...
+                    if(!ct.isPk)
+                    {
+                        // Column is not a primary key.
+
+                        // Set it to no identity behavior...
+                        ct.identityBehavior = eIdentityBehavior.UNSET;
+                    }
+                    else
+                    {
+                        // Column is a primary key.
+
+                        // Recover any identity information for the column...
+                        try
                         {
-                            // Failed to get is_identity column value.
-
-                            OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
-                                $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
-                                $"Failed to get is_identity column value.");
-
-                            return -22;
-                        }
-
-                        // See if it is claimed as identity...
-                        if (!isidentity)
-                        {
-                            // It might not be identity, or might be a default generated identity... generated by a method.
-
-                            var resig = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "default_constraint_name", out string defconstraintname);
-                            if (resig < 0)
+                            var res5 = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "is_identity", out bool isidentity);
+                            if (res5 != 1)
                             {
-                                // Failed to get default_constraint_name column value.
+                                // Failed to get is_identity column value.
 
                                 OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
                                     $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
-                                    $"Failed to get default_constraint_name column value.");
+                                    $"Failed to get is_identity column value.");
 
                                 return -22;
                             }
-                            else if(resig == 0 && string.IsNullOrEmpty(defconstraintname))
-                            {
-                                // Not a default generated identity column.
 
-                                ct.isIdentity = false;
-                                ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
-                            }
-                            else if(resig == 1 && !string.IsNullOrEmpty(defconstraintname))
+                            // See if it is claimed as identity...
+                            if (!isidentity)
                             {
-                                // Has a default constraint.
+                                // It might not be identity, or might be a default generated identity... generated by a method.
 
-                                // Get its default constraint...
-                                var resdc = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "default_definition", out string defconstraint);
+                                var resig = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "default_constraint_name", out string defconstraintname);
                                 if (resig < 0)
                                 {
-                                    // Failed to get default_definition column value.
+                                    // Failed to get default_constraint_name column value.
 
                                     OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
                                         $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
-                                        $"Failed to get default_definition column value.");
+                                        $"Failed to get default_constraint_name column value.");
 
                                     return -22;
                                 }
-                                else if(resig == 1 && defconstraint == "(newsequentialid())")
+                                else if(resig == 0 && string.IsNullOrEmpty(defconstraintname))
                                 {
-                                    // Is a default generated constraint.
+                                    // Not a default generated identity column.
+                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                                }
+                                else if(resig == 1 && !string.IsNullOrEmpty(defconstraintname))
+                                {
+                                    // Has a default constraint.
 
-                                    ct.isIdentity = false;
-                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.GenerateByDefault;
+                                    // Get its default constraint...
+                                    var resdc = MSSQL_DAL.Recover_FieldValue_from_DBRow(r, "default_definition", out string defconstraint);
+                                    if (resig < 0)
+                                    {
+                                        // Failed to get default_definition column value.
+
+                                        OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(
+                                            $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                                            $"Failed to get default_definition column value.");
+
+                                        return -22;
+                                    }
+                                    else if(resig == 1 && defconstraint == "(newsequentialid())")
+                                    {
+                                        // Is a default generated constraint.
+
+                                        ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.GenerateByDefault;
+                                    }
+                                    else
+                                    {
+                                        // Not a default generated identity column.
+                                        ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                                    }
                                 }
                                 else
                                 {
-                                    // Not a default generated identity column.
-
-                                    ct.isIdentity = false;
                                     ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
                                 }
                             }
                             else
                             {
-                                ct.isIdentity = false;
-                                ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                                // Database reports column is identity.
+
+                                // Get the identity behavior...
+                                try
+                                {
+                                    string ib = ((string)r["identity_generation"]) ?? "";
+                                    if (ib == "BY DEFAULT")
+                                        ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways;
+                                    //else
+                                    //    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
+                                }
+                                catch (Exception e)
+                                {
+                                    OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
+                                        $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
+                                        $"Exception occurred while parsing identity_generation for column ({(ct.name ?? "")})");
+
+                                    return -21;
+                                }
                             }
                         }
-                        else
+                        catch (Exception e)
                         {
-                            // Database reports column is identity.
-                            ct.isIdentity = true;
-
-                            // Get the identity behavior...
-                            try
-                            {
-                                string ib = ((string)r["identity_generation"]) ?? "";
-                                if (ib == "BY DEFAULT")
-                                    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.GenerateAlways;
-                                //else
-                                //    ct.identityBehavior = DAL.CreateVerify.Model.eIdentityBehavior.UNSET;
-                            }
-                            catch (Exception e)
-                            {
-                                OGA.SharedKernel.Logging_Base.Logger_Ref?.Error(e,
-                                    $"{_classname}:{this.InstanceId.ToString()}:{nameof(Get_ColumnInfo_forTable)} - " +
-                                    $"Exception occurred while parsing identity_generation for column ({(ct.name ?? "")})");
-
-                                return -21;
-                            }
+                            ct.isPk = false;
                         }
-                    }
-                    catch (Exception e)
-                    {
-                        ct.isIdentity = false;
                     }
 
                     columnlist.Add(ct);
